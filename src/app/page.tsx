@@ -8,10 +8,19 @@ export default async function Home() {
     redirect('/login');
   }
 
-  // Redirigir según el rol
-  if (session.user.role === 'LEADER' || session.user.role === 'ADMIN') {
-    redirect('/leader/dashboard');
-  } else {
-    redirect('/agent/dashboard');
+  const userRole = session.user.role as string;
+  const userEmail = session.user.email;
+
+  // Admin redirige al dashboard de admin
+  if (userRole === 'ADMIN' || userEmail === 'dantekein90151@gmail.com') {
+    redirect('/admin/dashboard');
   }
+
+  // Líder redirige al dashboard de líder
+  if (userRole === 'LEADER') {
+    redirect('/leader/dashboard');
+  }
+
+  // Agente redirige al dashboard de agente
+  redirect('/agent/dashboard');
 }

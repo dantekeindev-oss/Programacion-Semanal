@@ -3,8 +3,11 @@ import Google from 'next-auth/providers/google';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from './prisma';
 
-// Dominio corporativo configurable
-const CORPORATE_DOMAIN = process.env.CORPORATE_DOMAIN || 'example.com';
+// Dominio corporativo
+const CORPORATE_DOMAIN = 'konecta.com';
+
+// Email de administrador único
+const ADMIN_EMAIL = 'dantekein90151@gmail.com';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -16,7 +19,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         params: {
           prompt: 'consent',
           access_type: 'offline',
-          hd: CORPORATE_DOMAIN, // Restringe al dominio corporativo
+          hd: CORPORATE_DOMAIN, // Restringir al dominio corporativo
         },
       },
     }),
@@ -24,83 +27,143 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === 'google') {
-        // Verificar que el email pertenezca al dominio corporativo
         const email = user.email;
+
+        // Validar que sea un email permitido
         if (!email) {
           return false;
         }
 
-        const domain = email.split('@')[1];
-        if (domain !== CORPORATE_DOMAIN) {
+        // El admin puede tener cualquier email
+        const isAdmin = email === ADMIN_EMAIL;
+
+        // Los demás usuarios deben tener dominio corporativo
+        const emailDomain = email.split('@')[1]?.toLowerCase();
+        if (!isAdmin && emailDomain !== CORPORATE_DOMAIN) {
           console.error(`Email ${email} no pertenece al dominio corporativo ${CORPORATE_DOMAIN}`);
-          return false;
+          throw new Error(`Solo se permiten emails del dominio @${CORPORATE_DOMAIN}. Contacta a soporte si necesitas acceso.`);
         }
 
         // Extraer nombre y apellido del nombre completo
+        let firstName = '';
+        let lastName = '';
         if (user.name) {
           const nameParts = user.name.split(' ');
-          const firstName = nameParts[0];
-          const lastName = nameParts.slice(1).join(' ');
+          if (nameParts.length >= 2) {
+            lastName = nameParts.slice(0, -1).join(' ');
+            firstName = nameParts[nameParts.length - 1];
+          } else if (nameParts.length === 1) {
+            firstName = nameParts[0];
+          } else {
+            firstName = user.email.split('@')[0];
+          }
+        }
 
-          // Actualizar el usuario con nombre y apellido
-          await prisma.user.update({
-            where: { email },
+        // Determinar rol: ADMIN si es el email específico, sino AGENT por defecto
+        // Nota: El rol LEADER se asigna cuando el usuario se crea en un equipo
+        let role: 'LEADER' | 'AGENT' | 'ADMIN' = isAdmin ? 'ADMIN' : 'AGENT';
+
+        // Buscar si ya existe el usuario
+        const existingUser = await prisma.user.findUnique({
+          where: { email },
+          include: { team: true, role: true },
+        });
+
+        let userId = existingUser?.id;
+
+        // Si no existe, crearlo
+        if (!existingUser) {
+          // Verificar si existe un equipo donde este email es el líder
+          // (esto se maneja en la carga de Excel)
+          const newUser = await prisma.user.create({
             data: {
+              email,
+              name: user.name,
               firstName,
               lastName,
+              image: user.image,
+              role,
               lastLoginAt: new Date(),
             },
           });
+          userId = newUser.id;
         } else {
+          // Si existe, actualizar datos básicos y último login
+          const updates: any = {
+            lastLoginAt: new Date(),
+          };
+
+          // Solo actualizar nombre/apellido si son nulos o vacíos
+          if (!existingUser.firstName || !existingUser.lastName) {
+            updates.firstName = firstName;
+            updates.lastName = lastName;
+          }
+
           await prisma.user.update({
-            where: { email },
-            data: { lastLoginAt: new Date() },
+            where: { id: existingUser.id },
+            data: updates,
           });
         }
 
         // Crear log de auditoría
         await prisma.auditLog.create({
           data: {
-            user: { connect: { email } },
+            userId,
             action: 'LOGIN',
             entity: 'USER',
-            changes: { email },
+            changes: {
+              email,
+              role,
+              isAdmin,
+              domain: emailDomain,
+            },
           },
         });
+
+        return true;
       }
       return true;
     },
     async session({ session, user }) {
-      if (session.user) {
+      if (session?.user && user) {
         // Extender la sesión con información adicional
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          include: { team: true },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            teamId: true,
+            weeklyDayOff: true,
+          },
         });
 
         if (dbUser) {
-          session.user.id = dbUser.id;
-          session.user.role = dbUser.role;
-          session.user.firstName = dbUser.firstName;
-          session.user.lastName = dbUser.lastName;
-          session.user.teamId = dbUser.teamId;
-          session.user.teamName = dbUser.team?.name || null;
-          session.user.weeklyDayOff = dbUser.weeklyDayOff;
+          session.user = {
+            ...session.user,
+            ...dbUser,
+            isAdmin: dbUser.email === ADMIN_EMAIL,
+            teamName: dbUser.team?.name || null,
+          };
         }
       }
       return session;
     },
-  },
-  pages: {
-    signIn: '/login',
-    error: '/error',
-  },
-  session: {
-    strategy: 'database',
-  },
-  events: {
-    async signIn({ user }) {
-      console.log(`User signed in: ${user.email}`);
+    session: {
+      strategy: 'database',
+    },
+    pages: {
+      signIn: '/login',
+      error: '/error',
+    },
+    events: {
+      async signIn({ user }) {
+        console.log(`Usuario autenticado: ${user.email}, Rol: ${user.role}, Admin: ${user.email === ADMIN_EMAIL}`);
+      },
     },
   },
 });
