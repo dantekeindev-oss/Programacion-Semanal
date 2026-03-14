@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Roles de usuario
+enum Role {
+  LEADER
+  AGENT
+  ADMIN
+}
+
+// Estado de solicitudes
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Tipo de solicitud
+enum RequestType {
+  SCHEDULE_SWAP // Cambio de horario con otro agente
+  DAY_OFF_SWAP  // Cambio de franco con otro agente
+  SCHEDULE_CHANGE // Cambio individual de horario
+}
+
+// Día de la semana
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// Usuario del sistema
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  role          Role      @default(AGENT)
+
+  // Campos adicionales para gestión de francos
+  firstName     String?
+  lastName      String?
+
+  // Relaciones
+  teamId        String?
+  team          Team?     @relation("TeamMembers", fields: [teamId], references: [id])
+
+  // Líder que supervisa a este usuario (solo para agentes)
+  leaderId      String?
+  leader        User?     @relation("LeaderSupervisor", fields: [leaderId], references: [id])
+  supervisees   User[]    @relation("LeaderSupervisor")
+
+  // Configuración del agente
+  weeklyDayOff  WeekDay?
+
+  // Relaciones con otros modelos
+  schedules     Schedule[] @relation("UserSchedules")
+  breaks        Break[]    @relation("UserBreaks")
+  requests      Request[] @relation("Requester")
+  requestsAsAgent Request[] @relation("InvolvedAgent")
+  resolvedRequests Request[] @relation("ResolvedBy")
+  notifications  Notification[]
+  auditLogs     AuditLog[]
+  ledTeams     Team[] @relation("TeamLeader")
+
+  // Fechas
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  @@index([email])
+  @@index([role])
+  @@index([teamId])
+  @@index([leaderId])
+}
+
+// Equipos de trabajo
+model Team {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+
+  // Líder del equipo
+  leaderId    String    @unique
+  leader      User      @relation("TeamLeader", fields: [leaderId], references: [id])
+
+  // Miembros del equipo
+  members     User[]    @relation("TeamMembers")
+
+  // Horarios y breaks del equipo
+  schedules   Schedule[] @relation("TeamSchedules")
+  breaks      Break[]    @relation("TeamBreaks")
+
+  // Fechas
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([leaderId])
+}
+
+// Horarios de trabajo
+model Schedule {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("UserSchedules", fields: [userId], references: [id])
+
+  teamId      String?
+  team        Team?     @relation("TeamSchedules", fields: [teamId], references: [id])
+
+  // Horario: formato HH:MM-HH:MM (ej: "09:00-18:00")
+  timeRange   String
+
+  // Vigencia del horario
+  validFrom   DateTime
+  validTo     DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([teamId])
+  @@index([validFrom, validTo])
+}
+
+// Horarios de break
+model Break {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("UserBreaks", fields: [userId], references: [id])
+
+  teamId      String?
+  team        Team?     @relation("TeamBreaks", fields: [teamId], references: [id])
+
+  // Tipo: DAILY (mismo horario todos los días) o WEEKLY (diferente cada día)
+  type        String    @default("DAILY") // DAILY | WEEKLY
+
+  // Para DAILY: horario del break
+  timeRange   String?   // formato HH:MM-HH:MM
+
+  // Para WEEKLY: día y horario específico
+  dayOfWeek   WeekDay?
+  weeklyTime  String?   // formato HH:MM-HH:MM
+
+  // Duración en minutos
+  duration    Int?      @default(15)
+
+  // Vigencia
+  validFrom   DateTime
+  validTo     DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([teamId])
+  @@index([validFrom, validTo])
+}
+
+// Solicitudes de cambio
+model Request {
+  id            String        @id @default(cuid())
+
+  // Solicitante
+  requesterId   String
+  requester     User          @relation("Requester", fields: [requesterId], references: [id])
+
+  // Tipo de solicitud
+  type          RequestType
+
+  // Agente involucrado (para swaps)
+  involvedAgentId String?
+  involvedAgent  User?        @relation("InvolvedAgent", fields: [involvedAgentId], references: [id])
+
+  // Fechas y horarios
+  requestDate   DateTime      @default(now())
+  targetDate    DateTime      // Fecha del cambio solicitado
+
+  // Horario actual y solicitado
+  currentSchedule String?
+  requestedSchedule String?
+
+  // Motivo del cambio
+  reason        String?
+
+  // Estado
+  status        RequestStatus  @default(PENDING)
+
+  // Resolución
+  resolvedBy    String?       // ID del líder que resolvió
+  resolvedByUser User?        @relation("ResolvedBy", fields: [resolvedBy], references: [id])
+  resolvedAt    DateTime?
+  comment       String?       // Comentario del líder
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([requesterId])
+  @@index([status])
+  @@index([requestDate])
+  @@index([targetDate])
+}
+
+// Notificaciones
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+
+  type        String    // REQUEST_PENDING | REQUEST_APPROVED | REQUEST_REJECTED
+  title       String
+  message     String
+
+  // Relación con solicitud (si aplica)
+  requestId   String?
+
+  read        Boolean   @default(false)
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// Logs de auditoría
+model AuditLog {
+  id          String    @id @default(cuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+
+  action      String    // LOGIN | SCHEDULE_CREATE | SCHEDULE_UPDATE | REQUEST_CREATE | REQUEST_APPROVE | REQUEST_REJECT
+  entity      String    // USER | SCHEDULE | BREAK | REQUEST
+  entityId    String?
+  changes     Json?     // Cambios realizados
+
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
