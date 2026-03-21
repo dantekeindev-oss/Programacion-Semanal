@@ -219,11 +219,13 @@ export async function GET(req: NextRequest) {
           },
         }) : null;
 
+        const changes = log.changes as Record<string, unknown> | null;
+
         return {
           id: log.id,
           type: log.action,
-          targetDate: log.changes?.targetDate,
-          changes: log.changes,
+          targetDate: changes?.targetDate as string | undefined,
+          changes: changes,
           createdAt: log.createdAt,
           agent: agent ? {
             id: agent.id,
