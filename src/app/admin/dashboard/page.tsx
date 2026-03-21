@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -442,7 +442,7 @@ export default function AdminDashboard() {
   };
 
   // Handlers para gestión de emails
-  const handleLoadUsers = async () => {
+  const handleLoadUsers = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (usersRoleFilter !== 'ALL') {
@@ -463,7 +463,7 @@ export default function AdminDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar usuarios');
     }
-  };
+  }, [usersRoleFilter, usersSearch]);
 
   const handleEditEmail = (userId: string, currentEmail: string) => {
     setEditingEmail({ userId, currentEmail });

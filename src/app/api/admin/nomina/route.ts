@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import xlsx from 'xlsx';
+import * as XLSX from 'xlsx';
 import { Role } from '@prisma/client';
 import { normalizeDisplayText, normalizeEmail } from '@/lib/importNormalization';
 
@@ -30,17 +30,17 @@ export async function POST(request: NextRequest) {
     // Leer el archivo Excel
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const workbook = xlsx.read(buffer, { type: 'buffer' });
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json<NominaRow>(worksheet);
+    const data = XLSX.utils.sheet_to_json<NominaRow>(worksheet);
 
     const results = {
       created: 0,
       updated: 0,
       leaders: [] as Array<{ name: string; email: string; dni: string }>,
       agents: [] as Array<{ name: string; email: string; dni: string; leader: string }>,
-      errors: [] as Array<{ row: number; error: string }>,
+      errors: [] as Array<{ row: string; error: string }>,
     };
 
     // Map para guardar líderes encontrados
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         results.errors.push({
-          row: agentsMap.get(dni)?.dni || 'unknown',
+          row: agent.dni || 'unknown',
           error: error instanceof Error ? error.message : 'Error al procesar agente',
         });
       }
