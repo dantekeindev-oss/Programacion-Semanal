@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       updated: 0,
       leaders: [] as Array<{ name: string; email: string; dni: string }>,
       agents: [] as Array<{ name: string; email: string; dni: string; leader: string }>,
-      errors: [] as Array<{ row: string; error: string }>,
+      errors: [] as Array<{ row: number | string; error: string }>,
     };
 
     // Map para guardar líderes encontrados
