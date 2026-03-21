@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -400,9 +401,12 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div>
-            <p className="text-lg font-bold text-slate-900">Panel de Administracion</p>
-            <p className="text-sm text-slate-500">{adminSession.email}</p>
+          <div className="flex items-center gap-4">
+            <BrandLogo href="/admin/dashboard" size="sm" subtitle="Panel Admin" />
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{adminSession.name}</p>
+              <p className="text-sm text-slate-500">{adminSession.email}</p>
+            </div>
           </div>
           <Button variant="secondary" onClick={handleLogout}>
             Cerrar sesion

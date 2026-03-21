@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/lib/auth';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default async function Home() {
   const session = await auth();
@@ -31,16 +32,9 @@ export default async function Home() {
 
       <div className="w-full max-w-2xl glass-card shadow-soft-blue-lg p-8 md:p-12 relative z-10">
         {/* Logo/Brand section */}
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-200">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0M9 21h6m-6 0h-6m6 0h-6v-2a2 2 0 00-2-2H7a2 2 0 00-2 2v2m12 0v-4a2 2 0 00-2-2H7a2 2 0 00-2 2v4" />
-            </svg>
-          </div>
-          <span className="text-lg font-semibold text-gradient-blue tracking-wide">KONECTA</span>
-        </div>
+        <BrandLogo size="md" priority title="Gestor de Horarios" subtitle="Konecta" />
 
-        <h1 className="mt-6 text-4xl font-bold text-slate-900">Gestor de Horarios</h1>
+        <h1 className="mt-6 text-4xl font-bold text-slate-900">Tu espacio de gestion semanal</h1>
         <p className="mt-3 text-base text-slate-600 leading-relaxed">
           Plataforma interna para gestión de horarios, solicitudes y equipos.
         </p>

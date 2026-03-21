@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default function AgentNavigation() {
   const pathname = usePathname();
@@ -20,14 +21,7 @@ export default function AgentNavigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/agent/dashboard" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-md shadow-primary-200">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0M9 21h6m-6 0h-6m6 0h-6v-2a2 2 0 00-2-2H7a2 2 0 00-2 2v2m12 0v-4a2 2 0 00-2-2H7a2 2 0 00-2 2v4" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold text-gradient-blue">Gestor de Horarios</span>
-            </Link>
+            <BrandLogo href="/agent/dashboard" size="sm" subtitle="Konecta" />
             <div className="hidden md:flex space-x-1">
               {navItems.map((item) => (
                 <Link
