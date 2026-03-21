@@ -208,7 +208,7 @@ export async function GET(req: NextRequest) {
     // Para cada log, obtener información del agente afectado
     const swapsWithAgentInfo = await Promise.all(
       swapLogs.map(async (log) => {
-        const agent = await prisma.user.findUnique({
+        const agent = log.entityId ? await prisma.user.findUnique({
           where: { id: log.entityId },
           select: {
             id: true,
@@ -217,7 +217,7 @@ export async function GET(req: NextRequest) {
             email: true,
             weeklyDayOff: true,
           },
-        });
+        }) : null;
 
         return {
           id: log.id,
