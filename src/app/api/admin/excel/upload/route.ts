@@ -193,36 +193,47 @@ export async function POST(req: NextRequest) {
           ? WEEK_DAYS_MAP[row.dia_franco.toUpperCase()] || WEEK_DAYS_MAP[row.dia_franco]
           : null;
 
-        const normalizedFirstName = normalizeDisplayText(row.nombre);
-        const normalizedLastName = normalizeDisplayText(row.apellido);
-        const normalizedUserEmail = row.email
-          ? normalizeEmail(row.email)
-          : buildAgentEmail(normalizedFirstName, normalizedLastName, row.dni);
-
+        // Buscar agente por DNI (prioridad - ya viene de la nómina)
         let user = await prisma.user.findFirst({
           where: {
-            OR: [
-              { email: normalizedUserEmail },
-              { firstName: { contains: normalizedFirstName }, lastName: { contains: normalizedLastName } },
-            ],
+            dni: row.dni,
           },
         });
 
+        // Si no encuentra por DNI, buscar por nombre/apellido
+        if (!user) {
+          const normalizedFirstName = normalizeDisplayText(row.nombre);
+          const normalizedLastName = normalizeDisplayText(row.apellido);
+
+          user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { email: buildAgentEmail(normalizedFirstName, normalizedLastName, row.dni) },
+                { firstName: { contains: normalizedFirstName }, lastName: { contains: normalizedLastName } },
+              ],
+            },
+          });
+        }
+
         if (user) {
+          // Actualizar usuario existente - mantener email y leaderId de la nómina
           user = await prisma.user.update({
             where: { id: user.id },
             data: {
-              email: normalizedUserEmail,
-              firstName: normalizedFirstName,
-              lastName: normalizedLastName,
-              name: normalizeDisplayText(`${normalizedFirstName} ${normalizedLastName}`),
               teamId: team.id,
               weeklyDayOff: weekDay,
-              role: Role.AGENT,
+              // No actualizamos email ni leaderId porque ya vienen de la nómina
+              // Solo actualizamos si el usuario no tiene rol asignado
+              ...(user.role === 'AGENT' ? {} : { role: Role.AGENT }),
             },
           });
           results.updated++;
         } else {
+          // Crear nuevo usuario solo si no existe
+          const normalizedFirstName = normalizeDisplayText(row.nombre);
+          const normalizedLastName = normalizeDisplayText(row.apellido);
+          const normalizedUserEmail = buildAgentEmail(normalizedFirstName, normalizedLastName, row.dni);
+
           user = await prisma.user.create({
             data: {
               email: normalizedUserEmail,
@@ -233,6 +244,7 @@ export async function POST(req: NextRequest) {
               teamId: team.id,
               leaderId: team.leaderId,
               weeklyDayOff: weekDay,
+              dni: row.dni,
             },
           });
           results.created++;

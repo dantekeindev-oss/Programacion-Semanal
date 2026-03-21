@@ -14,6 +14,7 @@ export default function LeaderNavigation() {
     { href: '/leader/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/leader/team', label: 'Mi Equipo', icon: '👥' },
     { href: '/leader/requests', label: 'Solicitudes', icon: '📋' },
+    { href: '/leader/swap', label: 'Enroques', icon: '🔄' },
     { href: '/leader/upload', label: 'Cargar Excel', icon: '📥' },
   ];
 
