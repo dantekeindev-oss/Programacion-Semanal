@@ -77,14 +77,17 @@ export const authConfig = {
           }
         }
 
-        const role: 'LEADER' | 'AGENT' | 'ADMIN' = isAdmin ? 'ADMIN' : 'AGENT';
-
+        // Buscar usuario existente
         const existingUser = await prisma.user.findUnique({
           where: { email },
           include: { team: true },
         });
 
         if (!existingUser) {
+          // Si es nuevo usuario, asignar rol AGENT por defecto
+          // El rol LEADER se asignará desde el panel de admin
+          const role: 'LEADER' | 'AGENT' | 'ADMIN' = isAdmin ? 'ADMIN' : 'AGENT';
+
           await prisma.user.create({
             data: {
               email,
@@ -97,12 +100,14 @@ export const authConfig = {
             },
           });
         } else {
+          // Si el usuario ya existe, mantener su rol actual
           await prisma.user.update({
             where: { id: existingUser.id },
             data: {
               firstName: firstName || existingUser.firstName,
               lastName: lastName || existingUser.lastName,
               lastLoginAt: new Date(),
+              // Mantener el rol existente, no sobrescribir
             },
           });
         }

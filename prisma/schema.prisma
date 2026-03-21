@@ -55,6 +55,12 @@ model User {
   firstName     String?
   lastName      String?
 
+  // Email configurado manualmente por admin (para excepciones)
+  emailManuallySet Boolean @default(false)
+
+  // DNI del agente (para cruzar con nómina)
+  dni           String?
+
   // Relaciones
   teamId        String?
   team          Team?     @relation("TeamMembers", fields: [teamId], references: [id])
@@ -90,6 +96,7 @@ model User {
   @@index([role])
   @@index([teamId])
   @@index([leaderId])
+  @@index([dni])
 }
 
 // Modelos para NextAuth

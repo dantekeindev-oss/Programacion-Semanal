@@ -38,6 +38,8 @@ type AdminUser = {
   role: string;
   teamName: string | null;
   lastLoginAt: string | null;
+  emailManuallySet: boolean;
+  dni: string | null;
 };
 
 type AdminTeam = {
@@ -67,9 +69,13 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showNominaModal, setShowNominaModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [nominaFile, setNominaFile] = useState<File | null>(null);
   const [uploadFormat, setUploadFormat] = useState<UploadFormat>('auto');
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingNomina, setIsUploadingNomina] = useState(false);
   const [isClearingProgramming, setIsClearingProgramming] = useState(false);
   const [isRunningFullCleanup, setIsRunningFullCleanup] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
@@ -81,7 +87,20 @@ export default function AdminDashboard() {
     leadersAssigned: number;
     errors: Array<{ dni: string; error: string }>;
   } | null>(null);
+  const [nominaResult, setNominaResult] = useState<{
+    created: number;
+    updated: number;
+    leaders: Array<{ name: string; email: string; dni: string }>;
+    agents: Array<{ name: string; email: string; dni: string; leader: string }>;
+    errors: Array<{ row: number; error: string }>;
+  } | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadDisplayError[]>([]);
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [editingEmail, setEditingEmail] = useState<{ userId: string; currentEmail: string } | null>(null);
+  const [newEmail, setNewEmail] = useState('');
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersRoleFilter, setUsersRoleFilter] = useState<'ALL' | 'LEADER' | 'AGENT'>('ALL');
 
   useEffect(() => {
     const checkSession = async () => {
@@ -376,6 +395,124 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handler para cargar nómina
+  const handleNominaFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNominaFile(file);
+      setError(null);
+    }
+  };
+
+  const handleUploadNomina = async () => {
+    if (!nominaFile) {
+      setError('Por favor selecciona el archivo de nómina');
+      return;
+    }
+
+    setIsUploadingNomina(true);
+    setError(null);
+    setNominaResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', nominaFile);
+
+      const res = await fetch('/api/admin/nomina', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al procesar la nómina');
+      }
+
+      setNominaResult(data.data);
+      setSuccess(`Nómina procesada: ${data.data.created} agentes creados, ${data.data.updated} actualizados, ${data.data.leaders.length} líderes identificados.`);
+      setShowNominaModal(false);
+      setNominaFile(null);
+      await refreshData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al procesar la nómina');
+    } finally {
+      setIsUploadingNomina(false);
+    }
+  };
+
+  // Handlers para gestión de emails
+  const handleLoadUsers = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (usersRoleFilter !== 'ALL') {
+        params.append('role', usersRoleFilter);
+      }
+      if (usersSearch) {
+        params.append('search', usersSearch);
+      }
+
+      const res = await fetch(`/api/admin/users/list?${params}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al cargar usuarios');
+      }
+
+      setAllUsers(data.data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar usuarios');
+    }
+  };
+
+  const handleEditEmail = (userId: string, currentEmail: string) => {
+    setEditingEmail({ userId, currentEmail });
+    setNewEmail(currentEmail);
+    setError(null);
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!editingEmail || !newEmail) {
+      return;
+    }
+
+    setIsUpdatingEmail(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/users/email', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editingEmail.userId,
+          email: newEmail,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al actualizar email');
+      }
+
+      setSuccess('Email actualizado correctamente');
+      setEditingEmail(null);
+      setNewEmail('');
+      await handleLoadUsers();
+      await refreshData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar email');
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showUsersModal) {
+      handleLoadUsers();
+    }
+  }, [showUsersModal, usersRoleFilter, usersSearch]);
+
   const availableLeaders = users.filter(
     (user) => user.email.endsWith('@konecta.com') && user.role !== 'ADMIN'
   );
@@ -432,7 +569,7 @@ export default function AdminDashboard() {
             <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
             <p className="text-slate-600">Gestion general del sistema</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="secondary"
               onClick={handleFullCleanup}
@@ -447,8 +584,20 @@ export default function AdminDashboard() {
             >
               {isClearingProgramming ? 'Limpiando...' : 'Limpiar programacion'}
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowNominaModal(true)}
+            >
+              Cargar Nómina
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowUsersModal(true)}
+            >
+              Gestionar Emails
+            </Button>
             <Button onClick={() => setShowUploadModal(true)}>
-              Cargar Excel
+              Cargar Programación
             </Button>
           </div>
         </div>
@@ -671,6 +820,192 @@ export default function AdminDashboard() {
               </Button>
               <Button onClick={handleUploadExcel} disabled={isUploading || !uploadFile}>
                 {isUploading ? 'Procesando...' : 'Cargar Excel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para cargar nómina */}
+      {showNominaModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-200">
+              <h3 className="text-xl font-semibold text-slate-900">Cargar Nómina</h3>
+              <p className="text-sm text-slate-500 mt-1">Importa agentes y líderes desde el archivo Excel</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleNominaFileSelect}
+                className="block w-full text-sm text-slate-700"
+              />
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                <p className="font-medium mb-2">El archivo debe tener las columnas:</p>
+                <p className="text-xs">DNI, USUARIO, NOMBRE, SUPERIOR, SEGMENTO, HORARIOS, ESTADO, CONTRATO, SITIO, MODALIDAD, JEFE</p>
+              </div>
+
+              {nominaResult && (
+                <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-sm text-emerald-900 space-y-1">
+                  <p>Agentes creados: {nominaResult.created}</p>
+                  <p>Agentes actualizados: {nominaResult.updated}</p>
+                  <p>Líderes identificados: {nominaResult.leaders.length}</p>
+                  {nominaResult.errors.length > 0 && <p>Errores: {nominaResult.errors.length}</p>}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-200 flex justify-between gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowNominaModal(false);
+                  setNominaFile(null);
+                  setNominaResult(null);
+                }}
+                disabled={isUploadingNomina}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleUploadNomina} disabled={isUploadingNomina || !nominaFile}>
+                {isUploadingNomina ? 'Procesando...' : 'Cargar Nómina'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para gestionar emails */}
+      {showUsersModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-200">
+              <h3 className="text-xl font-semibold text-slate-900">Gestionar Emails</h3>
+              <p className="text-sm text-slate-500 mt-1">Edita los emails de los usuarios cuando no coincidan con la lógica estándar</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-3">
+                <select
+                  value={usersRoleFilter}
+                  onChange={(e) => setUsersRoleFilter(e.target.value as 'ALL' | 'LEADER' | 'AGENT')}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 bg-white"
+                >
+                  <option value="ALL">Todos los roles</option>
+                  <option value="LEADER">Líderes</option>
+                  <option value="AGENT">Agentes</option>
+                </select>
+
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, email o DNI..."
+                  value={usersSearch}
+                  onChange={(e) => setUsersSearch(e.target.value)}
+                  className="flex-1 min-w-[200px] px-4 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              {/* Lista de usuarios */}
+              <div className="border border-slate-200 rounded-xl max-h-96 overflow-y-auto">
+                {allUsers.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">No hay usuarios encontrados</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-slate-700">Nombre</th>
+                        <th className="px-4 py-3 text-left font-medium text-slate-700">Email</th>
+                        <th className="px-4 py-3 text-left font-medium text-slate-700">Rol</th>
+                        <th className="px-4 py-3 text-left font-medium text-slate-700">DNI</th>
+                        <th className="px-4 py-3 text-right font-medium text-slate-700">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {allUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3">{user.firstName || user.name || '-'}</td>
+                          <td className="px-4 py-3">
+                            {editingEmail?.userId === user.id ? (
+                              <input
+                                type="email"
+                                value={newEmail}
+                                onChange={(e) => setNewEmail(e.target.value)}
+                                className="w-full px-3 py-2 border border-primary-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                disabled={isUpdatingEmail}
+                              />
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className={user.emailManuallySet ? 'font-medium text-primary-600' : ''}>
+                                  {user.email}
+                                </span>
+                                {user.emailManuallySet && (
+                                  <Badge variant="info" className="text-xs">Editado</Badge>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={user.role === 'LEADER' ? 'success' : 'default'}>
+                              {user.role}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{user.dni || '-'}</td>
+                          <td className="px-4 py-3 text-right">
+                            {editingEmail?.userId === user.id ? (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    setEditingEmail(null);
+                                    setNewEmail('');
+                                  }}
+                                  disabled={isUpdatingEmail}
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={handleUpdateEmail}
+                                  disabled={isUpdatingEmail || !newEmail}
+                                >
+                                  {isUpdatingEmail ? 'Guardando...' : 'Guardar'}
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleEditEmail(user.id, user.email || '')}
+                              >
+                                Editar
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-200 flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowUsersModal(false);
+                  setAllUsers([]);
+                  setUsersSearch('');
+                  setUsersRoleFilter('ALL');
+                  setEditingEmail(null);
+                }}
+              >
+                Cerrar
               </Button>
             </div>
           </div>
