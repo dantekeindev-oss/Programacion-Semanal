@@ -6,7 +6,7 @@ import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import LeaderNavigation from '@/components/leader/LeaderNavigation';
-import { WeekDay } from '@/prisma/client';
+import { WeekDay } from '@prisma/client';
 import { getWeekDayLabel } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
