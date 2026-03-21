@@ -4,27 +4,31 @@
 
 @layer base {
   :root {
-    --color-primary-50: #f0f9ff;
-    --color-primary-100: #e0f2fe;
-    --color-primary-200: #bae6fd;
-    --color-primary-300: #7dd3fc;
-    --color-primary-400: #38bdf8;
-    --color-primary-500: #0ea5e9;
-    --color-primary-600: #0284c7;
-    --color-primary-700: #0369a1;
-    --color-primary-800: #075985;
-    --color-primary-900: #0c4a6e;
+    /* Konecta Blue Palette - Professional & Modern */
+    --color-primary-25: #f0f7ff;
+    --color-primary-50: #e0efff;
+    --color-primary-100: #b8d9ff;
+    --color-primary-200: #8cc5ff;
+    --color-primary-300: #5aa9ff;
+    --color-primary-400: #2d8fff;
+    --color-primary-500: #0077f7;
+    --color-primary-600: #0056d6;
+    --color-primary-700: #003eb3;
+    --color-primary-800: #002b8f;
+    --color-primary-900: #001a66;
 
-    --color-slate-50: #f8fafc;
-    --color-slate-100: #f1f5f9;
-    --color-slate-200: #e2e8f0;
-    --color-slate-300: #cbd5e1;
-    --color-slate-400: #94a3b8;
-    --color-slate-500: #64748b;
-    --color-slate-600: #475569;
-    --color-slate-700: #334155;
-    --color-slate-800: #1e293b;
-    --color-slate-900: #0f172a;
+    /* Neutral grays for blue theme */
+    --color-slate-25: #fafbfc;
+    --color-slate-50: #f5f7fa;
+    --color-slate-100: #e8ecf1;
+    --color-slate-200: #d3dae3;
+    --color-slate-300: #b5c2d3;
+    --color-slate-400: #94a6bc;
+    --color-slate-500: #73849a;
+    --color-slate-600: #5a6b82;
+    --color-slate-700: #455366;
+    --color-slate-800: #364251;
+    --color-slate-900: #283141;
   }
 
   * {
@@ -32,33 +36,33 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-gradient-to-br from-slate-25 via-white to-primary-25 text-slate-900 antialiased;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 focus:ring-2 focus:ring-primary-400 focus:ring-offset-2 rounded-xl shadow-md shadow-primary-200 transition-all duration-200;
   }
 
   .btn-secondary {
-    @apply bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2;
+    @apply bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-primary-300 hover:text-primary-600 focus:ring-2 focus:ring-primary-400 focus:ring-offset-2 rounded-xl transition-all duration-200;
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+    @apply bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 focus:ring-2 focus:ring-red-400 focus:ring-offset-2 rounded-xl shadow-md shadow-red-200 transition-all duration-200;
   }
 
   .btn-success {
-    @apply bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
+    @apply bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 rounded-xl shadow-md shadow-emerald-200 transition-all duration-200;
   }
 
   .card {
-    @apply bg-white border border-slate-200 rounded-lg shadow-sm;
+    @apply bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300;
   }
 
   .card-header {
-    @apply px-6 py-4 border-b border-slate-200;
+    @apply px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-primary-25 rounded-t-2xl;
   }
 
   .card-body {
@@ -66,31 +70,31 @@
   }
 
   .card-footer {
-    @apply px-6 py-4 bg-slate-50 border-t border-slate-200;
+    @apply px-6 py-4 bg-gradient-to-r from-slate-50 to-primary-25 border-t border-slate-200 rounded-b-2xl;
   }
 
   .input-field {
-    @apply w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm transition-colors;
+    @apply w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-500 sm:text-sm transition-all duration-200;
   }
 
   .badge-default {
-    @apply bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-medium;
+    @apply bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200;
   }
 
   .badge-success {
-    @apply bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-medium;
+    @apply bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-medium border border-emerald-200;
   }
 
   .badge-warning {
-    @apply bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-medium;
+    @apply bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-xs font-medium border border-amber-200;
   }
 
   .badge-danger {
-    @apply bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-medium;
+    @apply bg-red-100 text-red-700 px-3 py-1.5 rounded-full text-xs font-medium border border-red-200;
   }
 
   .badge-info {
-    @apply bg-sky-100 text-sky-700 px-3 py-1 rounded-full text-xs font-medium;
+    @apply bg-primary-100 text-primary-700 px-3 py-1.5 rounded-full text-xs font-medium border border-primary-200;
   }
 }
 
@@ -115,49 +119,53 @@
   }
 }
 
-/* Corporate styling additions */
+/* Corporate styling additions - Konecta Blue Theme */
 .corporate-gradient {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5a 50%, #0f172a 100%);
+  background: linear-gradient(135deg, #001a66 0%, #003eb3 50%, #0056d6 100%);
+}
+
+.corporate-gradient-light {
+  background: linear-gradient(135deg, #e0efff 0%, #b8d9ff 50%, #8cc5ff 100%);
 }
 
 .corporate-nav {
-  @apply bg-white border-b border-slate-200 shadow-sm;
+  @apply bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm;
 }
 
 .corporate-nav-link {
-  @apply px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200;
+  @apply px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200;
 }
 
 .corporate-nav-link-active {
-  @apply bg-primary-50 text-primary-700 font-semibold;
+  @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold shadow-md shadow-primary-200;
 }
 
 .corporate-card {
-  @apply bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200;
+  @apply bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-sm hover:shadow-lg hover:border-primary-200 transition-all duration-300;
 }
 
 .corporate-card-header {
-  @apply px-6 py-4 border-b border-slate-200 bg-slate-50;
+  @apply px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-primary-25 rounded-t-2xl;
 }
 
 .corporate-stat-card {
-  @apply bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow duration-200;
+  @apply bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300;
 }
 
 .stat-icon-primary {
-  @apply w-12 h-12 rounded-lg bg-primary-100 flex items-center justify-center text-primary-600;
+  @apply w-14 h-14 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white shadow-lg shadow-primary-200;
 }
 
 .stat-icon-success {
-  @apply w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600;
+  @apply w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200;
 }
 
 .stat-icon-warning {
-  @apply w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600;
+  @apply w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-200;
 }
 
 .stat-icon-danger {
-  @apply w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-red-600;
+  @apply w-14 h-14 rounded-xl bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white shadow-lg shadow-red-200;
 }
 
 .corporate-table {
@@ -165,21 +173,44 @@
 }
 
 .corporate-table th {
-  @apply px-6 py-3 bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-xs border-b border-slate-200;
+  @apply px-6 py-4 bg-gradient-to-r from-slate-50 to-primary-25 text-slate-700 font-semibold uppercase tracking-wider text-xs border-b-2 border-primary-200;
 }
 
 .corporate-table td {
-  @apply px-6 py-4 text-slate-900 border-b border-slate-100 hover:bg-slate-50 transition-colors;
+  @apply px-6 py-4 text-slate-900 border-b border-slate-100 hover:bg-primary-25/50 transition-colors;
 }
 
 .corporate-input {
-  @apply w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors;
+  @apply w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-400 focus:border-primary-500 bg-white transition-all duration-200;
 }
 
 .corporate-select {
-  @apply w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors;
+  @apply w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-400 focus:border-primary-500 bg-white transition-all duration-200;
 }
 
 .corporate-textarea {
-  @apply w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors resize-none;
+  @apply w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-400 focus:border-primary-500 transition-all duration-200 resize-none;
+}
+
+/* New glass morphism effects */
+.glass-card {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl shadow-lg;
+}
+
+.glass-nav {
+  @apply bg-white/80 backdrop-blur-lg border-b border-white/20 shadow-sm;
+}
+
+/* Blue gradient text */
+.text-gradient-blue {
+  @apply bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent;
+}
+
+/* Soft shadow for blue theme */
+.shadow-soft-blue {
+  box-shadow: 0 4px 20px rgba(0, 86, 214, 0.15);
+}
+
+.shadow-soft-blue-lg {
+  box-shadow: 0 10px 40px rgba(0, 86, 214, 0.2);
 }

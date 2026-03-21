@@ -9,6 +9,8 @@ import AgentNavigation from '@/components/agent/AgentNavigation';
 import { AgentScheduleInfo, RequestWithRelations } from '@/types';
 import { getWeekDayLabel, getRequestStatusLabel, getBadgeVariantForStatus, formatDateTime } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+
 export default function AgentDashboard() {
   const { data: session } = useSession();
   const [schedule, setSchedule] = useState<AgentScheduleInfo | null>(null);
@@ -51,28 +53,37 @@ export default function AgentDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-25 via-white to-primary-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          <p className="text-slate-600">Cargando...</p>
+          <div className="animate-spin rounded-full h-14 w-14 border-4 border-primary-200 border-t-primary-600"></div>
+          <p className="text-slate-600 font-medium">Cargando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-primary-25 via-white to-primary-50">
       <AgentNavigation />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">
-            Mi Horario
-          </h1>
-          <p className="text-slate-600 mt-1">
-            Hola, {session?.user?.firstName || session?.user?.name}
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-200">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gradient-blue">
+                Mi Horario
+              </h1>
+              <p className="text-slate-600 mt-1">
+                Hola, {session?.user?.firstName || session?.user?.name}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -85,14 +96,14 @@ export default function AgentDashboard() {
               {schedule ? (
                 <div className="space-y-5">
                   {/* Team */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">Equipo</p>
-                    <p className="text-xl font-bold text-slate-900">{schedule.teamName}</p>
+                  <div className="p-4 bg-gradient-to-r from-primary-50 to-white border border-primary-200 rounded-xl">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Equipo</p>
+                    <p className="text-xl font-bold text-gradient-blue">{schedule.teamName}</p>
                   </div>
 
                   {/* Day Off */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">Franco Semanal</p>
+                  <div className="p-4 bg-gradient-to-r from-primary-50 to-white border border-primary-200 rounded-xl">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Franco Semanal</p>
                     {schedule.weeklyDayOff ? (
                       <Badge variant="info" className="text-sm px-4 py-1.5">
                         {getWeekDayLabel(schedule.weeklyDayOff)}
@@ -103,19 +114,19 @@ export default function AgentDashboard() {
                   </div>
 
                   {/* Work Schedule */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">Horario de Trabajo</p>
-                    <p className="text-xl font-bold text-slate-900">
+                  <div className="p-4 bg-gradient-to-r from-primary-50 to-white border border-primary-200 rounded-xl">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Horario de Trabajo</p>
+                    <p className="text-xl font-bold text-gradient-blue">
                       {schedule.scheduleTime || 'No asignado'}
                     </p>
                   </div>
 
                   {/* Break */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">Break</p>
+                  <div className="p-4 bg-gradient-to-r from-primary-50 to-white border border-primary-200 rounded-xl">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Break</p>
                     {schedule.breakTime ? (
                       <div className="flex items-center gap-3">
-                        <span className="text-xl font-bold text-slate-900">{schedule.breakTime}</span>
+                        <span className="text-xl font-bold text-gradient-blue">{schedule.breakTime}</span>
                         {schedule.breakDay && (
                           <Badge variant="default" className="text-xs px-3 py-1">
                             {getWeekDayLabel(schedule.breakDay)}
@@ -129,7 +140,7 @@ export default function AgentDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <svg className="mx-auto h-16 w-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="mx-auto h-16 w-16 text-primary-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   <p className="text-slate-600">
@@ -147,7 +158,7 @@ export default function AgentDashboard() {
                 className="w-full h-12 text-base font-medium"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4m8 0v-4m0 4H4m0 4v-4m0 4h8" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 Crear Nueva Solicitud
               </Button>
@@ -172,7 +183,7 @@ export default function AgentDashboard() {
                   {recentRequests.map((request) => (
                     <div
                       key={request.id}
-                      className="p-4 border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-primary-200 transition-all cursor-pointer"
+                      className="p-4 border border-slate-200 rounded-xl hover:bg-primary-25/50 hover:border-primary-300 transition-all cursor-pointer"
                       onClick={() => window.location.href = '/agent/requests'}
                     >
                       <div className="flex items-start justify-between mb-2">
@@ -205,7 +216,7 @@ export default function AgentDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <svg className="mx-auto h-16 w-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="mx-auto h-16 w-16 text-primary-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <p className="text-slate-600">
