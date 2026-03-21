@@ -261,10 +261,10 @@ export default function LeaderSwapPage() {
                           </span>
                         </div>
                         <p className="text-sm font-medium text-slate-900">
-                          {log.agent?.firstName} {log.agent?.lastName}
+                          {log.agent?.name || log.agent?.firstName}
                         </p>
                         <p className="text-xs text-slate-600 mt-1">
-                          {new Date(log.changes.targetDate).toLocaleDateString('es-AR')}
+                          {new Date(log.targetDate).toLocaleDateString('es-AR')}
                         </p>
                         {log.changes.newSchedule && (
                           <p className="text-xs text-primary-600 mt-1">
