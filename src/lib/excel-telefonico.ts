@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { ScheduleFromExcel } from '@/types';
+import { buildAgentEmail, normalizeDisplayText } from '@/lib/importNormalization';
 
 /**
  * Convierte hora decimal a formato HH:MM
@@ -115,9 +116,9 @@ export async function processTelefonicoExcel(file: File) {
 
       // Extraer datos básicos
       rowData.dni = String(row[0] || '').trim();
-      rowData.nombre_completo = String(row[1] || '').trim();
-      rowData.lider = String(row[2] || '').trim();
-      rowData.segmento = String(row[3] || '').trim();
+      rowData.nombre_completo = normalizeDisplayText(String(row[1] || ''));
+      rowData.lider = normalizeDisplayText(String(row[2] || ''));
+      rowData.segmento = normalizeDisplayText(String(row[3] || ''));
 
       // Validar campos requeridos
       if (!rowData.dni) {
@@ -131,12 +132,12 @@ export async function processTelefonicoExcel(file: File) {
       }
 
       // Separar nombre y apellido
-      const nameParts = rowData.nombre_completo.split(' ').filter(p => p.trim());
+      const nameParts = rowData.nombre_completo.split(' ').filter((p: string) => p.trim());
       if (nameParts.length >= 2) {
-        rowData.apellido = nameParts.slice(0, -1).join(' ');
-        rowData.nombre = nameParts[nameParts.length - 1];
+        rowData.apellido = normalizeDisplayText(nameParts.slice(0, -1).join(' '));
+        rowData.nombre = normalizeDisplayText(nameParts[nameParts.length - 1]);
       } else if (nameParts.length === 1) {
-        rowData.nombre = nameParts[0];
+        rowData.nombre = normalizeDisplayText(nameParts[0]);
         rowData.apellido = '';
       } else {
         rowData.nombre = '';
@@ -184,9 +185,7 @@ export async function processTelefonicoExcel(file: File) {
 
       // Generar email (por defecto usa formato nombre.apellido@dominio.com)
       if (rowData.nombre && rowData.apellido) {
-        const nombreNormalizado = rowData.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
-        const apellidoNormalizado = rowData.apellido.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
-        rowData.email = `${nombreNormalizado}.${apellidoNormalizado}@example.com`;
+        rowData.email = buildAgentEmail(rowData.nombre, rowData.apellido, rowData.dni);
       }
 
       // Si no hay errores en esta fila, agregar a los datos

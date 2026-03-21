@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import LeaderNavigation from '@/components/leader/LeaderNavigation';
 import { RequestWithRelations, RequestStatus } from '@/types';
 import { getRequestStatusLabel, getRequestTypeLabel, getBadgeVariantForStatus, formatDateTime } from '@/lib/utils';
+
+export const dynamic = 'force-dynamic';
 
 export default function LeaderRequestsPage() {
   const [requests, setRequests] = useState<RequestWithRelations[]>([]);
@@ -16,11 +18,7 @@ export default function LeaderRequestsPage() {
   const [comment, setComment] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [filter]);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
       const url = filter === 'ALL'
@@ -38,7 +36,11 @@ export default function LeaderRequestsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   const handleApprove = async () => {
     if (!selectedRequest || processing) return;
@@ -123,28 +125,28 @@ export default function LeaderRequestsPage() {
         {/* Filters */}
         <div className="mb-6 flex flex-wrap gap-2">
           <Button
-            variant={filter === 'ALL' ? 'primary' : 'outline'}
+            variant={filter === 'ALL' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => setFilter('ALL')}
           >
             Todas ({getStatusCount('ALL')})
           </Button>
           <Button
-            variant={filter === 'PENDING' ? 'primary' : 'outline'}
+            variant={filter === 'PENDING' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => setFilter('PENDING')}
           >
             Pendientes ({getStatusCount('PENDING')})
           </Button>
           <Button
-            variant={filter === 'APPROVED' ? 'primary' : 'outline'}
+            variant={filter === 'APPROVED' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => setFilter('APPROVED')}
           >
             Aprobadas ({getStatusCount('APPROVED')})
           </Button>
           <Button
-            variant={filter === 'REJECTED' ? 'primary' : 'outline'}
+            variant={filter === 'REJECTED' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => setFilter('REJECTED')}
           >

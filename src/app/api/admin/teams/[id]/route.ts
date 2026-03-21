@@ -1,19 +1,15 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { ADMIN_EMAIL } from '@/lib/auth';
+import { getAdminAuthConfig, requireAdminSession } from '@/lib/adminAuth';
 
-// GET - Obtener detalles de un equipo específico
 export async function GET(
-  request: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth();
-
-    // Verificar que sea el admin
-    if (!session?.user || session.user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const authResult = requireAdminSession(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
     const team = await prisma.team.findUnique({
@@ -73,30 +69,27 @@ export async function GET(
   }
 }
 
-// PATCH - Actualizar el líder de un equipo
 export async function PATCH(
-  request: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth();
-
-    // Verificar que sea el admin
-    if (!session?.user || session.user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const authResult = requireAdminSession(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
-    const body = await request.json();
+    const { adminEmail } = getAdminAuthConfig();
+    const body = await req.json();
     const { leaderEmail } = body;
 
     if (!leaderEmail) {
       return NextResponse.json(
-        { error: 'El email del líder es requerido' },
+        { error: 'El email del lider es requerido' },
         { status: 400 }
       );
     }
 
-    // Buscar al usuario que será el nuevo líder
     const newLeader = await prisma.user.findUnique({
       where: { email: leaderEmail },
       include: {
@@ -111,15 +104,13 @@ export async function PATCH(
       );
     }
 
-    // No permitir usar el email del admin como líder de equipo
-    if (newLeader.email === ADMIN_EMAIL) {
+    if (newLeader.email === adminEmail) {
       return NextResponse.json(
-        { error: 'El administrador principal no puede ser asignado como líder de equipo' },
+        { error: 'El administrador principal no puede ser asignado como lider de equipo' },
         { status: 403 }
       );
     }
 
-    // Obtener el equipo actual
     const team = await prisma.team.findUnique({
       where: { id: params.id },
       include: {
@@ -134,7 +125,6 @@ export async function PATCH(
       );
     }
 
-    // Si el usuario ya es líder de este equipo, no hacer nada
     if (team.leaderId === newLeader.id) {
       return NextResponse.json({
         data: {
@@ -147,39 +137,39 @@ export async function PATCH(
       });
     }
 
-    // Si el nuevo líder ya está en otro equipo, moverlo a este equipo
-    if (newLeader.teamId && newLeader.teamId !== params.id) {
-      // Desvincular del equipo anterior
-      await prisma.user.update({
-        where: { id: newLeader.id },
-        data: { teamId: params.id },
-      });
-    } else if (!newLeader.teamId) {
-      // Si no tiene equipo, asignarle este
-      await prisma.user.update({
-        where: { id: newLeader.id },
-        data: { teamId: params.id },
-      });
+    if (newLeader.role === 'LEADER' && newLeader.teamId && newLeader.teamId !== params.id) {
+      return NextResponse.json(
+        { error: 'El usuario ya lidera otro equipo. Desasignalo primero antes de moverlo.' },
+        { status: 409 }
+      );
     }
 
-    // Actualizar el rol del nuevo líder a LEADER
-    await prisma.user.update({
-      where: { id: newLeader.id },
-      data: { role: 'LEADER' },
+    await prisma.$transaction(async (tx) => {
+      const previousLeaderId = team.leaderId;
+
+      await tx.user.update({
+        where: { id: newLeader.id },
+        data: {
+          teamId: params.id,
+          role: 'LEADER',
+        },
+      });
+
+      if (previousLeaderId && previousLeaderId !== newLeader.id) {
+        await tx.user.update({
+          where: { id: previousLeaderId },
+          data: { role: 'AGENT' },
+        });
+      }
+
+      await tx.team.update({
+        where: { id: params.id },
+        data: { leaderId: newLeader.id },
+      });
     });
 
-    // Si había un líder anterior, cambiar su rol a AGENT
-    if (team.leaderId && team.leaderId !== newLeader.id) {
-      await prisma.user.update({
-        where: { id: team.leaderId },
-        data: { role: 'AGENT' },
-      });
-    }
-
-    // Actualizar el equipo con el nuevo líder
-    const updatedTeam = await prisma.team.update({
+    const updatedTeam = await prisma.team.findUnique({
       where: { id: params.id },
-      data: { leaderId: newLeader.id },
       include: {
         leader: {
           select: {
@@ -194,33 +184,38 @@ export async function PATCH(
       },
     });
 
-    // Crear log de auditoría
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'TEAM_UPDATE',
-        entity: 'TEAM',
-        entityId: params.id,
-        changes: {
-          previous: {
-            leaderId: team.leaderId,
-            leaderEmail: team.leader?.email || null,
-          },
-          new: {
-            leaderId: newLeader.id,
-            leaderEmail: newLeader.email,
+    const adminUser = await prisma.user.findFirst({
+      where: { email: adminEmail },
+    });
+
+    if (adminUser) {
+      await prisma.auditLog.create({
+        data: {
+          userId: adminUser.id,
+          action: 'TEAM_UPDATE',
+          entity: 'TEAM',
+          entityId: params.id,
+          changes: {
+            previous: {
+              leaderId: team.leaderId,
+              leaderEmail: team.leader?.email || null,
+            },
+            new: {
+              leaderId: newLeader.id,
+              leaderEmail: newLeader.email,
+            },
           },
         },
-      },
-    });
+      });
+    }
 
     return NextResponse.json({
       data: {
-        id: updatedTeam.id,
-        name: updatedTeam.name,
-        description: updatedTeam.description,
-        leaderId: updatedTeam.leaderId,
-        leader: updatedTeam.leader,
+        id: updatedTeam?.id,
+        name: updatedTeam?.name,
+        description: updatedTeam?.description,
+        leaderId: updatedTeam?.leaderId,
+        leader: updatedTeam?.leader,
       },
     });
   } catch (error) {

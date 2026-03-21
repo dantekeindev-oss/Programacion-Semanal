@@ -1,81 +1,91 @@
 import NextAuth from 'next-auth';
+import type { NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
-import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from './prisma';
 
-// Dominio corporativo
-const CORPORATE_DOMAIN = 'konecta.com';
+const CORPORATE_DOMAIN = process.env.CORPORATE_DOMAIN || 'konecta.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'dantekein90151@gmail.com';
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || '';
 
-// Email de administrador único
-const ADMIN_EMAIL = 'dantekein90151@gmail.com';
-
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+export const authConfig = {
+  trustHost: true,
+  secret: AUTH_SECRET,
+  debug: process.env.NODE_ENV !== 'production',
+  logger: {
+    error(error: unknown) {
+      console.error('Auth.js error:', error);
+    },
+    warn(code: string) {
+      console.warn('Auth.js warning:', code);
+    },
+    debug(code: string, metadata: unknown) {
+      console.debug('Auth.js debug:', code, metadata);
+    },
+  },
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
       authorization: {
+        url: 'https://accounts.google.com/o/oauth2/v2/auth',
         params: {
+          scope: 'openid email profile',
           prompt: 'consent',
           access_type: 'offline',
-          hd: CORPORATE_DOMAIN, // Restringir al dominio corporativo
+          response_type: 'code',
         },
       },
+      token: 'https://oauth2.googleapis.com/token',
+      userinfo: 'https://openidconnect.googleapis.com/v1/userinfo',
     }),
   ],
+  session: {
+    strategy: 'jwt',
+  },
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider === 'google') {
+      if (account?.provider === 'google' && user.email) {
         const email = user.email;
 
-        // Validar que sea un email permitido
         if (!email) {
           return false;
         }
 
-        // El admin puede tener cualquier email
         const isAdmin = email === ADMIN_EMAIL;
-
-        // Los demás usuarios deben tener dominio corporativo
         const emailDomain = email.split('@')[1]?.toLowerCase();
+
         if (!isAdmin && emailDomain !== CORPORATE_DOMAIN) {
           console.error(`Email ${email} no pertenece al dominio corporativo ${CORPORATE_DOMAIN}`);
           throw new Error(`Solo se permiten emails del dominio @${CORPORATE_DOMAIN}. Contacta a soporte si necesitas acceso.`);
         }
 
-        // Extraer nombre y apellido del nombre completo
         let firstName = '';
         let lastName = '';
+
         if (user.name) {
           const nameParts = user.name.split(' ');
+
           if (nameParts.length >= 2) {
             lastName = nameParts.slice(0, -1).join(' ');
             firstName = nameParts[nameParts.length - 1];
           } else if (nameParts.length === 1) {
             firstName = nameParts[0];
           } else {
-            firstName = user.email.split('@')[0];
+            firstName = email.split('@')[0];
           }
         }
 
-        // Determinar rol: ADMIN si es el email específico, sino AGENT por defecto
-        // Nota: El rol LEADER se asigna cuando el usuario se crea en un equipo
-        let role: 'LEADER' | 'AGENT' | 'ADMIN' = isAdmin ? 'ADMIN' : 'AGENT';
+        const role: 'LEADER' | 'AGENT' | 'ADMIN' = isAdmin ? 'ADMIN' : 'AGENT';
 
-        // Buscar si ya existe el usuario
         const existingUser = await prisma.user.findUnique({
           where: { email },
-          include: { team: true, role: true },
+          include: { team: true },
         });
 
-        let userId = existingUser?.id;
-
-        // Si no existe, crearlo
         if (!existingUser) {
-          // Verificar si existe un equipo donde este email es el líder
-          // (esto se maneja en la carga de Excel)
-          const newUser = await prisma.user.create({
+          await prisma.user.create({
             data: {
               email,
               name: user.name,
@@ -86,49 +96,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               lastLoginAt: new Date(),
             },
           });
-          userId = newUser.id;
         } else {
-          // Si existe, actualizar datos básicos y último login
-          const updates: any = {
-            lastLoginAt: new Date(),
-          };
-
-          // Solo actualizar nombre/apellido si son nulos o vacíos
-          if (!existingUser.firstName || !existingUser.lastName) {
-            updates.firstName = firstName;
-            updates.lastName = lastName;
-          }
-
           await prisma.user.update({
             where: { id: existingUser.id },
-            data: updates,
+            data: {
+              firstName: firstName || existingUser.firstName,
+              lastName: lastName || existingUser.lastName,
+              lastLoginAt: new Date(),
+            },
           });
         }
 
-        // Crear log de auditoría
-        await prisma.auditLog.create({
-          data: {
-            userId,
-            action: 'LOGIN',
-            entity: 'USER',
-            changes: {
-              email,
-              role,
-              isAdmin,
-              domain: emailDomain,
-            },
-          },
-        });
-
         return true;
       }
+
       return true;
     },
-    async session({ session, user }) {
-      if (session?.user && user) {
-        // Extender la sesión con información adicional
+    async session({ session }) {
+      if (session?.user) {
+        const sessionEmail = session.user.email;
+
+        if (!sessionEmail) {
+          return session;
+        }
+
         const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
+          where: { email: sessionEmail },
           select: {
             id: true,
             email: true,
@@ -139,6 +132,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: true,
             teamId: true,
             weeklyDayOff: true,
+            team: {
+              select: {
+                name: true,
+              },
+            },
           },
         });
 
@@ -151,19 +149,57 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           };
         }
       }
+
       return session;
     },
-    session: {
-      strategy: 'database',
-    },
-    pages: {
-      signIn: '/login',
-      error: '/error',
-    },
-    events: {
-      async signIn({ user }) {
-        console.log(`Usuario autenticado: ${user.email}, Rol: ${user.role}, Admin: ${user.email === ADMIN_EMAIL}`);
-      },
+    async jwt({ token, user }) {
+      const email = user?.email || token.email;
+
+      if (!email) {
+        return token;
+      }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          teamId: true,
+          weeklyDayOff: true,
+          team: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (dbUser) {
+        token.sub = dbUser.id;
+        token.email = dbUser.email;
+        token.name = dbUser.name;
+        token.picture = dbUser.image;
+        token.role = dbUser.role;
+        token.teamId = dbUser.teamId;
+        token.weeklyDayOff = dbUser.weeklyDayOff;
+        token.firstName = dbUser.firstName;
+        token.lastName = dbUser.lastName;
+        token.isAdmin = dbUser.email === ADMIN_EMAIL;
+        token.teamName = dbUser.team?.name || null;
+      }
+
+      return token;
     },
   },
-});
+  pages: {
+    signIn: '/',
+    error: '/error',
+  },
+} satisfies NextAuthConfig;
+
+export const { handlers, signIn, signOut, auth } = NextAuth(authConfig);

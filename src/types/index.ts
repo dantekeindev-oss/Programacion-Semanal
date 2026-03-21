@@ -3,8 +3,10 @@ import { Role, RequestStatus, RequestType, WeekDay } from '@prisma/client';
 // Tipos extendidos de Prisma
 export type UserRole = Role;
 export type RequestStatusType = RequestStatus;
-export type RequestTypeEnum = RequestType;
 export type WeekDayType = WeekDay;
+
+// Re-exportar tipos de Prisma
+export { RequestType, RequestStatus };
 
 // Usuario extendido
 export type UserWithTeam = {

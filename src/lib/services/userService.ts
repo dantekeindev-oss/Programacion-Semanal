@@ -1,6 +1,29 @@
 import { prisma } from '@/lib/prisma';
+import { normalizeDisplayText, normalizeEmail } from '@/lib/importNormalization';
 import { Role, WeekDay } from '@prisma/client';
 import { UserWithTeam, UserWithFullTeam } from '@/types';
+
+const WEEK_DAYS_MAP: Record<string, WeekDay> = {
+  'LUNES': 'MONDAY',
+  'MARTES': 'TUESDAY',
+  'MIÉRCOLES': 'WEDNESDAY',
+  'JUEVES': 'THURSDAY',
+  'VIERNES': 'FRIDAY',
+  'SÁBADO': 'SATURDAY',
+  'DOMINGO': 'SUNDAY',
+  'Lunes': 'MONDAY',
+  'Martes': 'TUESDAY',
+  'Miercoles': 'WEDNESDAY',
+  'Jueves': 'THURSDAY',
+  'Viernes': 'FRIDAY',
+  'Sabado': 'SATURDAY',
+  'Domingo': 'SUNDAY',
+};
+
+function mapDayToWeekDay(day: string): WeekDay | null {
+  if (!day) return null;
+  return WEEK_DAYS_MAP[day.toUpperCase()] || WEEK_DAYS_MAP[day] || null;
+}
 
 export class UserService {
   /**
@@ -171,7 +194,7 @@ export class UserService {
     email: string;
     equipo: string;
     lider: string;
-    dia_franco: WeekDay;
+    dia_franco: string;
     horario_break: string;
     horario_trabajo?: string;
     fecha_vigencia_desde: string;
@@ -189,53 +212,58 @@ export class UserService {
 
     for (const row of data) {
       try {
+        const normalizedLeaderEmail = normalizeEmail(row.lider);
+        const normalizedTeamName = normalizeDisplayText(row.equipo);
+        const normalizedFirstName = normalizeDisplayText(row.nombre);
+        const normalizedLastName = normalizeDisplayText(row.apellido);
+        const normalizedUserEmail = normalizeEmail(row.email);
         // Obtener o crear líder
-        let leaderId = leadersMap.get(row.lider);
+        let leaderId = leadersMap.get(normalizedLeaderEmail);
         if (!leaderId) {
           const leader = await prisma.user.upsert({
-            where: { email: row.lider },
+            where: { email: normalizedLeaderEmail },
             update: {},
             create: {
-              email: row.lider,
-              name: `${row.lider.split('@')[0]}`,
+              email: normalizedLeaderEmail,
+              name: normalizeDisplayText(`${normalizedLeaderEmail.split('@')[0]}`),
               role: Role.LEADER,
             },
           });
           leaderId = leader.id;
-          leadersMap.set(row.lider, leaderId);
+          leadersMap.set(normalizedLeaderEmail, leaderId);
         }
 
         // Obtener o crear equipo
-        let teamId = teamsMap.get(row.equipo);
+        let teamId = teamsMap.get(normalizedTeamName);
         if (!teamId) {
           const team = await prisma.team.upsert({
-            where: { name: row.equipo },
+            where: { name: normalizedTeamName },
             update: {},
             create: {
-              name: row.equipo,
+              name: normalizedTeamName,
               leaderId,
             },
           });
           teamId = team.id;
-          teamsMap.set(row.equipo, teamId);
+          teamsMap.set(normalizedTeamName, teamId);
         }
 
         // Crear o actualizar usuario
         const user = await prisma.user.upsert({
-          where: { email: row.email },
+          where: { email: normalizedUserEmail },
           update: {
-            firstName: row.nombre,
-            lastName: row.apellido,
+            firstName: normalizedFirstName,
+            lastName: normalizedLastName,
             teamId,
-            weeklyDayOff: row.dia_franco,
+            weeklyDayOff: mapDayToWeekDay(row.dia_franco),
           },
           create: {
-            email: row.email,
-            name: `${row.nombre} ${row.apellido}`,
-            firstName: row.nombre,
-            lastName: row.apellido,
+            email: normalizedUserEmail,
+            name: normalizeDisplayText(`${normalizedFirstName} ${normalizedLastName}`),
+            firstName: normalizedFirstName,
+            lastName: normalizedLastName,
             teamId,
-            weeklyDayOff: row.dia_franco,
+            weeklyDayOff: mapDayToWeekDay(row.dia_franco),
             role: Role.AGENT,
             leaderId,
           },
@@ -300,7 +328,7 @@ export class UserService {
         }
       } catch (error) {
         results.errors.push({
-          email: row.email,
+          email: normalizeEmail(row.email),
           error: error instanceof Error ? error.message : 'Error desconocido',
         });
       }

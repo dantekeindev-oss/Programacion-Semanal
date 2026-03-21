@@ -7,6 +7,8 @@ import LeaderNavigation from '@/components/leader/LeaderNavigation';
 
 type ExcelFormat = 'standard' | 'telefonico';
 
+export const dynamic = 'force-dynamic';
+
 export default function LeaderUploadPage() {
   const [format, setFormat] = useState<ExcelFormat>('telefonico');
   const [file, setFile] = useState<File | null>(null);
@@ -256,7 +258,7 @@ export default function LeaderUploadPage() {
                       Días de franco
                     </h3>
                     <ul className="mt-2 space-y-1 text-sm text-slate-600 pl-8">
-                      <li>• Se detectan las celdas con <span className="font-semibold text-slate-800">"Franco"</span> o <span className="font-semibold text-slate-800">"F"</span></li>
+                      <li>• Se detectan las celdas con <span className="font-semibold text-slate-800">&quot;Franco&quot;</span> o <span className="font-semibold text-slate-800">&quot;F&quot;</span></li>
                     </ul>
                   </div>
 
@@ -358,8 +360,8 @@ export default function LeaderUploadPage() {
                         {result.errors.map((error, idx) => (
                           <li key={idx} className="text-red-700">
                             {isTelefonicoFormat
-                              ? `DNI ${error.dni}: ${error.error}`
-                              : `Fila ${error.row}, ${error.field}: ${error.message}`
+                              ? `DNI ${(error as any).dni}: ${(error as any).error}`
+                              : `Fila ${(error as any).row}, ${(error as any).field}: ${(error as any).message}`
                             }
                           </li>
                         ))}

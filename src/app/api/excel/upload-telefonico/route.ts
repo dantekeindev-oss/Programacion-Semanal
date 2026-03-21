@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { processTelefonicoExcel } from '@/lib/excel-telefonico';
+import { buildAgentEmail, buildLeaderEmail, normalizeDisplayText, normalizeEmail } from '@/lib/importNormalization';
 import { prisma } from '@/lib/prisma';
 import { Role, WeekDay } from '@prisma/client';
 
@@ -23,7 +24,7 @@ const WEEK_DAYS_MAP: Record<string, WeekDay> = {
 
 /**
  * POST /api/excel/upload-telefonico
- * Sube y procesa el archivo Excel con formato TELEFONICO
+ * Sube y procesa el archivo Excel con formato TELEFONICO (solo para líderes)
  */
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -96,13 +97,14 @@ export async function POST(req: NextRequest) {
 
           if (!leader) {
             // Crear líder temporal con email basado en nombre
-            const leaderEmail = `lider_${row.lider.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+            const leaderName = normalizeDisplayText(row.lider);
+            const leaderEmail = buildLeaderEmail(leaderName);
             leader = await prisma.user.create({
               data: {
                 email: leaderEmail,
-                name: row.lider,
-                firstName: row.lider.split(' ')[0] || row.lider,
-                lastName: row.lider.split(' ').slice(1).join(' ') || '',
+                name: leaderName,
+                firstName: leaderName.split(' ')[0] || leaderName,
+                lastName: leaderName.split(' ').slice(1).join(' ') || '',
                 role: Role.LEADER,
               },
             });
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
           // Crear equipo
           team = await prisma.team.create({
             data: {
-              name: row.lider,
+              name: normalizeDisplayText(row.lider),
               leaderId: leader.id,
             },
           });
@@ -121,11 +123,17 @@ export async function POST(req: NextRequest) {
         const weekDay = row.dia_franco ? WEEK_DAYS_MAP[row.dia_franco.toUpperCase()] || WEEK_DAYS_MAP[row.dia_franco] : null;
 
         // Buscar usuario por DNI o crear nuevo
+        const normalizedFirstName = normalizeDisplayText(row.nombre);
+        const normalizedLastName = normalizeDisplayText(row.apellido);
+        const normalizedUserEmail = row.email
+          ? normalizeEmail(row.email)
+          : buildAgentEmail(normalizedFirstName, normalizedLastName, row.dni);
+
         let user = await prisma.user.findFirst({
           where: {
             OR: [
-              { email: row.email },
-              { name: { contains: row.nombre_completo } },
+              { email: normalizedUserEmail },
+              { name: { contains: normalizeDisplayText(`${normalizedFirstName} ${normalizedLastName}`) } },
             ],
           },
         });
@@ -135,9 +143,10 @@ export async function POST(req: NextRequest) {
           user = await prisma.user.update({
             where: { id: user.id },
             data: {
-              firstName: row.nombre,
-              lastName: row.apellido,
-              name: row.nombre_completo,
+              email: normalizedUserEmail,
+              firstName: normalizedFirstName,
+              lastName: normalizedLastName,
+              name: normalizeDisplayText(`${normalizedFirstName} ${normalizedLastName}`),
               teamId: team.id,
               weeklyDayOff: weekDay,
             },
@@ -147,10 +156,10 @@ export async function POST(req: NextRequest) {
           // Crear nuevo usuario
           user = await prisma.user.create({
             data: {
-              email: row.email || `usuario_${row.dni}@example.com`,
-              name: row.nombre_completo,
-              firstName: row.nombre,
-              lastName: row.apellido,
+              email: normalizedUserEmail,
+              name: normalizeDisplayText(`${normalizedFirstName} ${normalizedLastName}`),
+              firstName: normalizedFirstName,
+              lastName: normalizedLastName,
               role: Role.AGENT,
               teamId: team.id,
               leaderId: team.leaderId,
@@ -209,6 +218,24 @@ export async function POST(req: NextRequest) {
           error: error instanceof Error ? error.message : 'Error desconocido',
         });
       }
+    }
+
+    // Crear log de auditoría
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'EXCEL_UPLOAD_TELEFONICO',
+          entity: 'EXCEL',
+          changes: {
+            processed: results.processed,
+            created: results.created,
+            updated: results.updated,
+          },
+        },
+      });
+    } catch {
+      // Ignorar error de log
     }
 
     return NextResponse.json({

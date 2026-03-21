@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     const buffer = generateExcelTemplate();
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': 'attachment; filename="plantilla_horarios.xlsx"',

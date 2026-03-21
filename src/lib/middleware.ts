@@ -200,9 +200,6 @@ export async function getUserInfo(userId: string) {
   const { prisma } = await import('./prisma');
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
-      team: true,
-    },
     select: {
       id: true,
       email: true,
@@ -211,7 +208,11 @@ export async function getUserInfo(userId: string) {
       lastName: true,
       role: true,
       teamId: true,
-      isAdmin: false, // Computed field
+      team: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 

@@ -1,42 +1,59 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { ADMIN_EMAIL } from '@/lib/auth';
+import { requireAdminSession } from '@/lib/adminAuth';
 
-// Dominio corporativo
-const CORPORATE_DOMAIN = 'konecta.com';
+export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await auth();
-
-    // Verificar que sea el admin
-    if (!session?.user || session.user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const authResult = requireAdminSession(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
-    // Obtener estadísticas
-    const [totalUsers, totalTeams, totalLeaders, totalAgents, totalRequests] = await Promise.all([
+    const [totalUsers, totalTeams, totalLeaders, totalAgents, totalRequests, lastCleanup] = await Promise.all([
       prisma.user.count(),
       prisma.team.count(),
       prisma.user.count({ where: { role: 'LEADER' } }),
       prisma.user.count({ where: { role: 'AGENT' } }),
       prisma.request.count(),
+      prisma.auditLog.findFirst({
+        where: {
+          action: {
+            in: ['PROGRAMMING_CLEAR', 'SYSTEM_CLEANUP_MANUAL', 'SYSTEM_CLEANUP_CRON'],
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          action: true,
+          createdAt: true,
+          changes: true,
+        },
+      }),
     ]);
 
-    const stats = {
-      totalUsers,
-      totalTeams,
-      totalLeaders,
-      totalAgents,
-      totalRequests,
-    };
-
-    return NextResponse.json({ data: stats });
+    return NextResponse.json({
+      data: {
+        totalUsers,
+        totalTeams,
+        totalLeaders,
+        totalAgents,
+        totalRequests,
+        lastCleanup: lastCleanup
+          ? {
+              action: lastCleanup.action,
+              createdAt: lastCleanup.createdAt,
+              changes: lastCleanup.changes,
+            }
+          : null,
+      },
+    });
   } catch (error) {
-    console.error('Error al obtener estadísticas:', error);
+    console.error('Error al obtener estadisticas:', error);
     return NextResponse.json(
-      { error: 'Error al obtener estadísticas' },
+      { error: 'Error al obtener estadisticas' },
       { status: 500 }
     );
   }

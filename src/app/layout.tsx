@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   description: "Sistema de gestión de horarios, francos y solicitudes",
 };
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 export default function RootLayout({
   children,
 }: Readonly<{

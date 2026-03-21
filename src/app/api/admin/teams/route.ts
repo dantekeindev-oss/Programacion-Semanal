@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { ADMIN_EMAIL } from '@/lib/auth';
+import { getAdminAuthConfig, requireAdminSession } from '@/lib/adminAuth';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request) {
   try {
-    const session = await auth();
-
-    // Verificar que sea el admin
-    if (!session?.user || session.user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const authResult = requireAdminSession(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
-    // Obtener todos los equipos con sus líderes y conteo de miembros
     const teams = await prisma.team.findMany({
       include: {
         leader: {
@@ -33,7 +31,6 @@ export async function GET() {
       },
     });
 
-    // Formatear respuesta
     const formattedTeams = teams.map((team) => ({
       id: team.id,
       name: team.name,
@@ -55,16 +52,15 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const session = await auth();
-
-    // Verificar que sea el admin
-    if (!session?.user || session.user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const authResult = requireAdminSession(req);
+    if ('error' in authResult) {
+      return authResult.error;
     }
 
-    const body = await request.json();
+    const { adminEmail } = getAdminAuthConfig();
+    const body = await req.json();
     const { name, description, leaderEmail } = body;
 
     if (!name) {
@@ -74,59 +70,60 @@ export async function POST(request: Request) {
       );
     }
 
-    // Si se especifica un líder, buscar al usuario
-    let leaderId: string | undefined;
-    if (leaderEmail) {
-      const leader = await prisma.user.findUnique({
-        where: { email: leaderEmail },
-      });
-
-      if (!leader) {
-        return NextResponse.json(
-          { error: 'El líder especificado no existe' },
-          { status: 404 }
-        );
-      }
-
-      leaderId = leader.id;
-
-      // Actualizar el rol del usuario a LEADER
-      await prisma.user.update({
-        where: { id: leaderId },
-        data: { role: 'LEADER' },
-      });
+    if (!leaderEmail) {
+      return NextResponse.json(
+        { error: 'El lider del equipo es requerido' },
+        { status: 400 }
+      );
     }
 
-    // Crear el equipo
+    const leader = await prisma.user.findUnique({
+      where: { email: leaderEmail },
+    });
+
+    if (!leader) {
+      return NextResponse.json(
+        { error: 'El lider especificado no existe' },
+        { status: 404 }
+      );
+    }
+
+    await prisma.user.update({
+      where: { id: leader.id },
+      data: { role: 'LEADER' },
+    });
+
     const team = await prisma.team.create({
       data: {
         name,
         description,
-        leaderId: leaderId!,
+        leaderId: leader.id,
       },
     });
 
-    // Si se creó con líder, asignarlo al equipo
-    if (leaderId) {
-      await prisma.user.update({
-        where: { id: leaderId },
-        data: { teamId: team.id },
+    await prisma.user.update({
+      where: { id: leader.id },
+      data: { teamId: team.id },
+    });
+
+    const adminUser = await prisma.user.findFirst({
+      where: { email: adminEmail },
+    });
+
+    if (adminUser) {
+      await prisma.auditLog.create({
+        data: {
+          userId: adminUser.id,
+          action: 'TEAM_CREATE',
+          entity: 'TEAM',
+          entityId: team.id,
+          changes: {
+            name,
+            leaderEmail,
+          },
+        },
       });
     }
-
-    // Crear log de auditoría
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'TEAM_CREATE',
-        entity: 'TEAM',
-        entityId: team.id,
-        changes: {
-          name,
-          leaderEmail,
-        },
-      },
-    });
 
     return NextResponse.json({
       data: {

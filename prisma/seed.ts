@@ -15,23 +15,7 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.team.deleteMany();
 
-  // Crear equipos
-  console.log('👥 Creando equipos...');
-  const team1 = await prisma.team.create({
-    data: {
-      name: 'Soporte Nivel 1',
-      description: 'Equipo de soporte técnico de primer nivel',
-    },
-  });
-
-  const team2 = await prisma.team.create({
-    data: {
-      name: 'Ventas',
-      description: 'Equipo de ventas y atención al cliente',
-    },
-  });
-
-  // Crear usuarios líderes
+  // Crear usuarios líderes primero
   console.log('👑 Creando líderes...');
   const leader1 = await prisma.user.create({
     data: {
@@ -40,7 +24,6 @@ async function main() {
       firstName: 'María',
       lastName: 'García',
       role: Role.LEADER,
-      teamId: team1.id,
       weeklyDayOff: WeekDay.SUNDAY,
     },
   });
@@ -52,20 +35,37 @@ async function main() {
       firstName: 'Carlos',
       lastName: 'Pérez',
       role: Role.LEADER,
-      teamId: team2.id,
       weeklyDayOff: WeekDay.SUNDAY,
     },
   });
 
-  // Actualizar equipos con sus líderes
-  await prisma.team.update({
-    where: { id: team1.id },
-    data: { leaderId: leader1.id },
+  // Crear equipos con sus líderes
+  console.log('👥 Creando equipos...');
+  const team1 = await prisma.team.create({
+    data: {
+      name: 'Soporte Nivel 1',
+      description: 'Equipo de soporte técnico de primer nivel',
+      leaderId: leader1.id,
+    },
   });
 
-  await prisma.team.update({
-    where: { id: team2.id },
-    data: { leaderId: leader2.id },
+  const team2 = await prisma.team.create({
+    data: {
+      name: 'Ventas',
+      description: 'Equipo de ventas y atención al cliente',
+      leaderId: leader2.id,
+    },
+  });
+
+  // Asignar equipos a los líderes
+  await prisma.user.update({
+    where: { id: leader1.id },
+    data: { teamId: team1.id },
+  });
+
+  await prisma.user.update({
+    where: { id: leader2.id },
+    data: { teamId: team2.id },
   });
 
   // Crear usuarios agentes - Equipo 1
@@ -127,7 +127,7 @@ async function main() {
     await prisma.schedule.create({
       data: {
         userId: user.id,
-        teamId: user.teamId,
+        teamId: user.teamId!,
         timeRange: '09:00-18:00',
         validFrom: new Date('2024-01-01'),
         validTo: null,
@@ -141,7 +141,7 @@ async function main() {
     await prisma.break.create({
       data: {
         userId: user.id,
-        teamId: user.teamId,
+        teamId: user.teamId!,
         type: 'DAILY',
         timeRange: '13:00-13:15',
         duration: 15,

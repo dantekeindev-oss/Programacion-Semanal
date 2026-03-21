@@ -63,7 +63,7 @@ export class RequestService {
         action: 'REQUEST_CREATE',
         entity: 'REQUEST',
         entityId: request.id,
-        changes: data,
+        changes: { ...data } as any,
       },
     });
 

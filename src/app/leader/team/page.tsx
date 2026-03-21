@@ -7,6 +7,8 @@ import LeaderNavigation from '@/components/leader/LeaderNavigation';
 import { TeamMemberInfo, WeekDayType } from '@/types';
 import { getWeekDayLabel } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+
 export default function LeaderTeamPage() {
   const [members, setMembers] = useState<TeamMemberInfo[]>([]);
   const [loading, setLoading] = useState(true);

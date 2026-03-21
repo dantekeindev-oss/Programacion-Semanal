@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RequestStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { RequestService } from '@/lib/services/requestService';
-import { RequestStatus } from '@prisma/client';
 import { CreateRequestDTO } from '@/types';
 
-/**
- * GET /api/requests
- * Obtiene solicitudes (del usuario autenticado o del equipo si es líder)
- */
 export async function GET(req: NextRequest) {
   const session = await auth();
 
@@ -22,7 +18,6 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const status = searchParams.get('status') as RequestStatus | null;
 
-    // Si el usuario es líder, obtener solicitudes del equipo
     if (session.user.role === 'LEADER' || session.user.role === 'ADMIN') {
       const requests = await RequestService.getTeamAllRequests(
         session.user.id,
@@ -31,11 +26,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: requests });
     }
 
-    // Si es agente, obtener sus solicitudes
     const requests = await RequestService.getUserRequests(
       session.user.id,
       status || undefined
     );
+
     return NextResponse.json({ success: true, data: requests });
   } catch (error) {
     console.error('Error al obtener solicitudes:', error);
@@ -49,10 +44,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * POST /api/requests
- * Crea una nueva solicitud
- */
 export async function POST(req: NextRequest) {
   const session = await auth();
 
@@ -65,8 +56,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: CreateRequestDTO = await req.json();
+    const parsedTargetDate = new Date(body.targetDate);
 
-    // Validaciones básicas
     if (!body.type || !body.targetDate || !body.requestedSchedule) {
       return NextResponse.json(
         {
@@ -77,10 +68,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar conflictos de horario
+    if (body.type !== 'SCHEDULE_CHANGE') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Por el momento solo esta habilitado el cambio individual de horario',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (Number.isNaN(parsedTargetDate.getTime())) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'La fecha solicitada no es valida',
+        },
+        { status: 400 }
+      );
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsedTargetDate < today) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'La fecha solicitada no puede ser anterior a hoy',
+        },
+        { status: 400 }
+      );
+    }
+
     const hasConflict = await RequestService.checkScheduleConflicts(
       session.user.id,
-      new Date(body.targetDate),
+      parsedTargetDate,
       body.requestedSchedule
     );
 
