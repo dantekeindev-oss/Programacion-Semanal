@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/lib/auth';
 import { BrandLogo } from '@/components/BrandLogo';
 
+// Force redeploy - v2
 export default async function Home() {
   const session = await auth();
 
