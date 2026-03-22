@@ -5,17 +5,66 @@ import { Role } from '@prisma/client';
 import { normalizeDisplayText, normalizeEmail } from '@/lib/importNormalization';
 
 interface NominaRow {
-  DNI: string;
-  USUARIO: string;
-  NOMBRE: string;
-  SUPERIOR: string;
-  SEGMENTO: string;
-  HORARIOS: string;
-  ESTADO: string;
-  CONTRATO: string;
-  SITIO: string;
-  MODALIDAD: string;
-  JEFE: string;
+  DNI?: string;
+  USUARIO?: string;
+  NOMBRE?: string;
+  SUPERIOR?: string;
+  SEGMENTO?: string;
+  HORARIOS?: string;
+  ESTADO?: string;
+  CONTRATO?: string;
+  SITIO?: string;
+  MODALIDAD?: string;
+  JEFE?: string;
+}
+
+// Mapeo flexible de columnas - permite diferentes nombres y case-insensitive
+const COLUMN_MAPPING: Record<string, string[]> = {
+  DNI: ['DNI', 'dni', 'Documento', 'DOCUMENTO', 'Doc', 'DOC'],
+  USUARIO: ['USUARIO', 'Usuario', 'usuario', 'Employee Id', 'EMPLOYEE ID', 'Legajo', 'LEGajo', 'ID'],
+  NOMBRE: ['NOMBRE', 'Nombre', 'nombre', 'Name', 'NAME', 'Agente', 'AGENTE', 'Apellido y Nombre'],
+  SUPERIOR: ['SUPERIOR', 'Superior', 'superior', 'Lider', 'LÍDER', 'Leader', 'LEADER', 'Jefe Directo', 'JEFE DIRECTO'],
+  SEGMENTO: ['SEGMENTO', 'Segmento', 'segmento', 'Segment', 'SEGMENT'],
+  HORARIOS: ['HORARIOS', 'Horarios', 'horarios', 'Horario', 'HORARIO', 'Schedule', 'SCHEDULE'],
+  ESTADO: ['ESTADO', 'Estado', 'estado', 'Status', 'STATUS', 'Estado Civil'],
+  CONTRATO: ['CONTRATO', 'Contrato', 'contrato', 'Contract', 'CONTRACT'],
+  SITIO: ['SITIO', 'Sitio', 'sitio', 'Site', 'SITE', 'Location', 'LOCATION'],
+  MODALIDAD: ['MODALIDAD', 'Modalidad', 'modalidad', 'Mode', 'MODE', 'Tipo', 'TIPO'],
+  JEFE: ['JEFE', 'Jefe', 'jefe', 'Manager', 'MANAGER', 'Gerente', 'GERENTE'],
+};
+
+// Función para normalizar nombre de columna
+function normalizeColumnName(colName: string): string {
+  if (!colName) return '';
+  return colName.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Función para encontrar la columna correcta en el Excel
+function findColumn(rawRow: Record<string, unknown>, targetField: string): string | null {
+  const rawKeys = Object.keys(rawRow);
+
+  for (const key of rawKeys) {
+    const normalizedKey = normalizeColumnName(key);
+
+    for (const variant of COLUMN_MAPPING[targetField]) {
+      const normalizedVariant = normalizeColumnName(variant);
+      if (normalizedKey.toLowerCase() === normalizedVariant.toLowerCase()) {
+        return key;
+      }
+    }
+  }
+
+  return null;
+}
+
+// Función para obtener valor de una columna con mapeo flexible
+function getRowValue(rawRow: Record<string, unknown>, field: string): string | undefined {
+  const actualColumn = findColumn(rawRow, field);
+  if (actualColumn && actualColumn in rawRow) {
+    const value = rawRow[actualColumn];
+    return value ? String(value).trim() : undefined;
+  }
+  return undefined;
 }
 
 export async function POST(request: NextRequest) {
@@ -33,7 +82,14 @@ export async function POST(request: NextRequest) {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json<NominaRow>(worksheet);
+    const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+
+    // Log de las columnas encontradas para debugging
+    if (rawData.length > 0) {
+      const sampleColumns = Object.keys(rawData[0]);
+      console.log('Columnas encontradas en el Excel:', sampleColumns);
+      console.log('Primera fila (sample):', rawData[0]);
+    }
 
     const results = {
       created: 0,
@@ -45,17 +101,18 @@ export async function POST(request: NextRequest) {
 
     // Map para guardar líderes encontrados
     const leadersMap = new Map<string, { email: string; name: string; dni: string }>();
-    const agentsMap = new Map<string, { email: string; name: string; dni: string; superior: string }>();
+    const agentsMap = new Map<string, { email: string; name: string; dni: string; superior: string; employeeId: string }>();
 
     // Primera pasada: procesar todos para obtener nombres únicos de líderes
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
+    for (let i = 0; i < rawData.length; i++) {
+      const rawRow = rawData[i];
       const rowIndex = i + 2; // +2 porque Excel tiene headers y empieza en fila 2
 
       try {
-        const dni = String(row.DNI || '').trim();
-        const nombre = normalizeDisplayText(String(row.NOMBRE || ''));
-        const superior = normalizeDisplayText(String(row.SUPERIOR || ''));
+        const dni = getRowValue(rawRow, 'DNI') || '';
+        const nombre = normalizeDisplayText(getRowValue(rawRow, 'NOMBRE') || '');
+        const superior = normalizeDisplayText(getRowValue(rawRow, 'SUPERIOR') || '');
+        const usuario = getRowValue(rawRow, 'USUARIO') || '';
 
         if (!dni || !nombre) {
           results.errors.push({ row: rowIndex, error: 'Falta DNI o NOMBRE' });
@@ -71,6 +128,7 @@ export async function POST(request: NextRequest) {
           name: nombre,
           dni,
           superior,
+          employeeId: usuario, // Guardar el USUARIO como employeeId
         });
 
         // Guardar líder si existe
@@ -160,6 +218,7 @@ export async function POST(request: NextRequest) {
               firstName: firstName || user.firstName,
               lastName: lastName || user.lastName,
               dni: agent.dni,
+              employeeId: agent.employeeId || user.employeeId, // Actualizar employeeId si existe
               leaderId: leader?.id || user.leaderId,
               role: Role.AGENT,
             },
@@ -174,6 +233,7 @@ export async function POST(request: NextRequest) {
               firstName,
               lastName,
               dni: agent.dni,
+              employeeId: agent.employeeId, // Guardar employeeId
               leaderId: leader?.id,
               role: Role.AGENT,
               emailManuallySet: false,
