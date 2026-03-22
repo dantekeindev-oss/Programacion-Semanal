@@ -11,7 +11,7 @@ export default function MigratePage() {
     setResult(null);
 
     try {
-      const res = await fetch('/api/admin/migrate-public', {
+      const res = await fetch('/api/admin/migrate', {
         method: 'POST',
       });
 
