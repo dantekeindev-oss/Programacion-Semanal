@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/lib/auth';
 import { BrandLogo } from '@/components/BrandLogo';
+import MigrateButton from './migrate-button';
 
-// Force redeploy - v2
+// Force redeploy - v3
 export default async function Home() {
   const session = await auth();
 
@@ -77,7 +78,8 @@ export default async function Home() {
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-slate-200 text-center">
-          <p className="text-xs text-slate-500">
+          <MigrateButton />
+          <p className="text-xs text-slate-500 mt-4">
             Sistema de Gestión de Horarios © {new Date().getFullYear()} Konecta
           </p>
         </div>
