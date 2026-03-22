@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { clearAdminSessionCookie } from '@/lib/adminAuth';
 import { prisma } from '@/lib/prisma';
 
+export async function GET(req: NextRequest) {
+  return await POST(req);
+}
+
 export async function POST(req: NextRequest) {
   const url = new URL(req.url);
   const migrate = url.searchParams.get('migrate');
