@@ -572,6 +572,12 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="secondary"
+              onClick={() => router.push('/admin/operations')}
+            >
+              Métricas Operativas
+            </Button>
+            <Button
+              variant="secondary"
               onClick={handleFullCleanup}
               disabled={loading || isRunningFullCleanup || isClearingProgramming}
             >

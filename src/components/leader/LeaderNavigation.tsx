@@ -12,6 +12,7 @@ export default function LeaderNavigation() {
 
   const navItems = [
     { href: '/leader/dashboard', label: 'Dashboard', icon: '📊' },
+    { href: '/leader/operations', label: 'Métricas', icon: '📈' },
     { href: '/leader/team', label: 'Mi Equipo', icon: '👥' },
     { href: '/leader/requests', label: 'Solicitudes', icon: '📋' },
     { href: '/leader/swap', label: 'Enroques', icon: '🔄' },

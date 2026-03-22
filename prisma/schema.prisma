@@ -61,9 +61,22 @@ model User {
   // DNI del agente (para cruzar con nómina)
   dni           String?
 
+  // Employee ID / Legajo (para métricas operativas)
+  employeeId    String?   @unique
+
+  // Skill / Campaña del agente
+  skill         String?
+
+  // Estado laboral del agente
+  employmentStatus String? @default("ACTIVE") // ACTIVE | INACTIVE | SUSPENDED | RESIGNED
+
   // Relaciones
   teamId        String?
   team          Team?     @relation("TeamMembers", fields: [teamId], references: [id])
+
+  // Isla del agente (para métricas operativas)
+  islandId      String?
+  island        Island?   @relation("IslandAgents", fields: [islandId], references: [id])
 
   // Líder que supervisa a este usuario (solo para agentes)
   leaderId      String?
@@ -83,6 +96,16 @@ model User {
   auditLogs     AuditLog[]
   ledTeams     Team[] @relation("TeamLeader")
 
+  // Relaciones con métricas operativas
+  operationsMetrics OperationsMetric[]
+  uploadedOperations OperationsUpload[] @relation("UploadCreator")
+
+  // Objetivos individuales (como agente)
+  agentGoals    AgentGoal[] @relation("AgentGoalTarget")
+
+  // Objetivos asignados (como líder)
+  assignedGoals AgentGoal[] @relation("LeaderAssignedGoals")
+
   // Relaciones con NextAuth
   accounts      Account[]
   sessions      Session[]
@@ -97,6 +120,8 @@ model User {
   @@index([teamId])
   @@index([leaderId])
   @@index([dni])
+  @@index([employeeId])
+  @@index([islandId])
 }
 
 // Modelos para NextAuth
@@ -302,4 +327,177 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+// ============================================
+// MÓDULO DE MÉTRICAS OPERATIVAS
+// ============================================
+
+// Isla / Segmento operativo
+model Island {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  code        String?   @unique
+  description String?
+
+  isActive    Boolean   @default(true)
+
+  // Agentes asignados a esta isla
+  agents      User[]    @relation("IslandAgents")
+
+  // Umbrales configurados para esta isla
+  threshold   IslandThreshold?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// Umbrales operativos por isla
+model IslandThreshold {
+  id          String   @id @default(cuid())
+
+  islandId    String   @unique
+  island      Island   @relation(fields: [islandId], references: [id], onDelete: Cascade)
+
+  // TMO (Tiempo Medio de Operación) en segundos
+  targetTmo   Int      @default(360)      // 6 minutos
+  warningTmo  Int      @default(420)     // 7 minutos
+  criticalTmo Int      @default(480)     // 8 minutos
+
+  // Break en segundos
+  targetBreak   Int    @default(900)     // 15 minutos
+  warningBreak  Int    @default(1080)    // 18 minutos
+  criticalBreak Int    @default(1260)    // 21 minutos
+
+  // ACW (After Call Work) en segundos
+  targetAcw   Int      @default(30)      // 30 segundos
+  warningAcw  Int      @default(45)      // 45 segundos
+  criticalAcw Int      @default(60)      // 60 segundos
+
+  // Hold (Tiempo en espera) en segundos
+  targetHold  Int      @default(60)      // 60 segundos
+  warningHold Int      @default(90)      // 90 segundos
+  criticalHold Int     @default(120)     // 120 segundos
+
+  // Adherencia (porcentaje)
+  targetAdherence Float @default(95.0)   // 95%
+  warningAdherence Float @default(90.0)  // 90%
+  criticalAdherence Float @default(85.0) // 85%
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([islandId])
+}
+
+// Registro de carga de CSV operativo
+model OperationsUpload {
+  id          String   @id @default(cuid())
+
+  uploadedByUserId String
+  uploadedByUser   User   @relation("UploadCreator", fields: [uploadedByUserId], references: [id])
+
+  originalFilename String
+  processedAt   DateTime?
+  status        String   @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+
+  totalRows    Int      @default(0)
+  validRows    Int      @default(0)
+  invalidRows  Int      @default(0)
+
+  notes        String?  @db.Text
+
+  // Métricas asociadas a esta carga
+  metrics      OperationsMetric[]
+
+  createdAt    DateTime @default(now())
+
+  @@index([uploadedByUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Métrica operativa por agente (snapshot de una carga)
+model OperationsMetric {
+  id          String   @id @default(cuid())
+
+  uploadId    String
+  upload      OperationsUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  // Identificación del agente
+  employeeId  String?
+  agent       User?    @relation(fields: [employeeId], references: [id])
+
+  // Datos raw del CSV para referencia
+  agentNameRaw    String?
+  leaderNameRaw   String?
+  skillRaw        String?
+
+  // Estado actual
+  currentStatus       String?  // READY | NOT_READY | ACW | BREAK | COACHING | etc
+  timeInStatusSeconds Int?     // Tiempo en el estado actual
+
+  // Tiempos en segundos
+  loginTimeSeconds        Int?   // Tiempo logueado
+  continuousLoginTimeSeconds Int? // Tiempo continuo logueado
+  tmoSeconds              Int?   // Tiempo Medio de Operación (AHT)
+  breakSeconds            Int?   // Tiempo en break
+  coachingSeconds         Int?   // Tiempo en coaching
+  acwSeconds              Int?   // After Call Work
+  holdSeconds             Int?   // Tiempo en espera
+
+  // Contadores
+  transfersCount          Int?    // Cantidad de transferencias
+  attendedCallsCount      Int?    // Llamadas atendidas (ATN)
+
+  // Tiempos de llamada
+  inboundTimeSeconds      Int?    // Tiempo en inbound
+  outboundTimeSeconds     Int?    // Tiempo en outbound
+  handleTimeSeconds       Int?    // Tiempo total de manejo
+
+  // Datos crudos del CSV
+  rawPayloadJson          Json?
+
+  createdAt   DateTime @default(now())
+
+  @@index([uploadId])
+  @@index([employeeId])
+  @@index([createdAt])
+}
+
+// Objetivos individuales cargados por líder para un agente
+model AgentGoal {
+  id          String   @id @default(cuid())
+
+  // Líder que asigna el objetivo
+  leaderId    String
+  leader      User     @relation("LeaderAssignedGoals", fields: [leaderId], references: [id], onDelete: Cascade)
+
+  // Agente objetivo
+  agentEmployeeId String
+  agent        User     @relation("AgentGoalTarget", fields: [agentEmployeeId], references: [id], onDelete: Cascade)
+
+  // Período del objetivo
+  periodMonth Int      // 1-12
+  periodYear  Int      // 2024, 2025, etc
+
+  // Objetivos operativos
+  targetTmoSeconds   Int?    // TMO objetivo en segundos
+  targetFcr          Float?  // First Call Resolution (%) 0-100
+  targetNps          Float?  // Net Promoter Score (-100 a 100)
+  targetRel          Float?  // Resolución en primer nivel (%) 0-100
+
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([leaderId, agentEmployeeId, periodMonth, periodYear])
+  @@index([leaderId])
+  @@index([agentEmployeeId])
+  @@index([periodMonth, periodYear])
+  @@index([isActive])
 }
