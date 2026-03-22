@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       `CREATE INDEX IF NOT EXISTS "User_role_key" ON "User"("role");`,
       `CREATE INDEX IF NOT EXISTS "User_teamId_key" ON "User"("teamId");`,
       `CREATE INDEX IF NOT EXISTS "User_dni_key" ON "User"("dni");`,
+
       // Crear tabla Island
       `CREATE TABLE IF NOT EXISTS "Island" (
         "id" TEXT NOT NULL,
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       );`,
       `CREATE INDEX IF NOT EXISTS "Island_code_key" ON "Island"("code");`,
       `CREATE INDEX IF NOT EXISTS "Island_isActive_key" ON "Island"("isActive");`,
+
       // Crear tabla IslandThreshold
       `CREATE TABLE IF NOT EXISTS "IslandThreshold" (
         "id" TEXT NOT NULL,
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
         CONSTRAINT "IslandThreshold_islandId_key" UNIQUE ("islandId")
       );`,
       `CREATE INDEX IF NOT EXISTS "IslandThreshold_islandId_key" ON "IslandThreshold"("islandId");`,
+
       // Crear tabla OperationsUpload
       `CREATE TABLE IF NOT EXISTS "OperationsUpload" (
         "id" TEXT NOT NULL,
@@ -77,6 +80,7 @@ export async function POST(req: NextRequest) {
       `CREATE INDEX IF NOT EXISTS "OperationsUpload_uploadedByUserId_key" ON "OperationsUpload"("uploadedByUserId");`,
       `CREATE INDEX IF NOT EXISTS "OperationsUpload_status_key" ON "OperationsUpload"("status");`,
       `CREATE INDEX IF NOT EXISTS "OperationsUpload_createdAt_key" ON "OperationsUpload"("createdAt");`,
+
       // Crear tabla OperationsMetric
       `CREATE TABLE IF NOT EXISTS "OperationsMetric" (
         "id" TEXT NOT NULL,
@@ -106,6 +110,7 @@ export async function POST(req: NextRequest) {
       `CREATE INDEX IF NOT EXISTS "OperationsMetric_uploadId_key" ON "OperationsMetric"("uploadId");`,
       `CREATE INDEX IF NOT EXISTS "OperationsMetric_employeeId_key" ON "OperationsMetric"("employeeId");`,
       `CREATE INDEX IF NOT EXISTS "OperationsMetric_createdAt_key" ON "OperationsMetric"("createdAt");`,
+
       // Crear tabla AgentGoal
       `CREATE TABLE IF NOT EXISTS "AgentGoal" (
         "id" TEXT NOT NULL,
@@ -135,11 +140,17 @@ export async function POST(req: NextRequest) {
         results.push({ success: true, migration: migration.substring(0, 60) + '...' });
       } catch (error: any) {
         // Si es un error de "column already exists", ignorar
-        if (!error.message?.includes('already exists') &&
-            !error.message?.includes('duplicate') &&
-            !error.message?.includes('unique constraint') &&
-            !error.message?.includes('relation')) {
-          results.push({ success: false, error: error.message, migration: migration.substring(0, 60) + '...' });
+        if (
+          !error.message?.includes('already exists') &&
+          !error.message?.includes('duplicate') &&
+          !error.message?.includes('unique constraint') &&
+          !error.message?.includes('relation')
+        ) {
+          results.push({
+            success: false,
+            error: error.message,
+            migration: migration.substring(0, 60) + '...',
+          });
         } else {
           results.push({ success: true, migration: migration.substring(0, 60) + '...' });
         }
@@ -154,7 +165,10 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error al ejecutar migraciones:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Error al ejecutar migraciones' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al ejecutar migraciones',
+      },
       { status: 500 }
     );
   }
