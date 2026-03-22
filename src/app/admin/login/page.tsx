@@ -13,6 +13,8 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<any>(null);
+  const [showMigrate, setShowMigrate] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,32 @@ export default function AdminLoginPage() {
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesion');
+      setIsLoading(false);
+    }
+  };
+
+  const handleMigrate = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'migrate', password: '__RUN_MIGRATIONS__' }),
+      });
+
+      const data = await res.json();
+      setMigrateResult(data);
+
+      if (data.success) {
+        alert('Migraciones completadas exitosamente');
+      } else {
+        setError(data.error || 'Error en migraciones');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al ejecutar migraciones');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -127,6 +155,41 @@ export default function AdminLoginPage() {
               )}
             </Button>
           </form>
+
+          {/* TEMPORAL: Botón de migración */}
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <button
+              onClick={() => setShowMigrate(!showMigrate)}
+              className="text-xs text-slate-400 underline"
+            >
+              {showMigrate ? 'Ocultar' : 'Mostrar'} herramientas de reparación
+            </button>
+
+            {showMigrate && (
+              <div className="mt-4 space-y-3">
+                <p className="text-xs text-slate-500">
+                  Ejecuta las migraciones de base de datos para corregir errores de columnas faltantes.
+                </p>
+                <Button
+                  onClick={handleMigrate}
+                  disabled={isLoading}
+                  variant="secondary"
+                  className="w-full text-sm"
+                >
+                  Ejecutar Migraciones
+                </Button>
+                {migrateResult?.results && (
+                  <div className="text-xs bg-slate-50 rounded p-2 max-h-32 overflow-y-auto">
+                    {migrateResult.results.map((r: any, i: number) => (
+                      <div key={i} className={r.success ? 'text-green-700' : 'text-red-700'}>
+                        {r.success ? '✓' : '✗'} {r.migration?.substring(0, 60)}...
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <p className="text-center text-slate-400 text-sm mt-8">
