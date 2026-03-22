@@ -6,12 +6,6 @@ export const dynamic = 'force-dynamic';
 // Endpoint temporal SIN autenticación para reparar la base de datos
 // TODO: Eliminar después de ejecutar las migraciones
 export async function POST(req: NextRequest) {
-  // Simple verificación de que viene del navegador (no es segura pero suficiente para reparación temporal)
-  const origin = req.headers.get('origin');
-  if (!origin?.includes('vercel.app') && !origin?.includes('localhost')) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
-  }
-
   try {
     const results = [];
 
