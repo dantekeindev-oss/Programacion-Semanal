@@ -15,12 +15,17 @@ export async function POST(req: NextRequest) {
 
     // Agregar columnas faltantes al modelo User
     const migrations = [
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailManuallySet" BOOLEAN DEFAULT false;`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "employeeId" TEXT;`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "User_employeeId_key" ON "User"("employeeId") WHERE "employeeId" IS NOT NULL;`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "skill" TEXT;`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "employmentStatus" TEXT DEFAULT 'ACTIVE';`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "islandId" TEXT;`,
       `CREATE INDEX IF NOT EXISTS "User_islandId_key" ON "User"("islandId");`,
+      `CREATE INDEX IF NOT EXISTS "User_leaderId_key" ON "User"("leaderId");`,
+      `CREATE INDEX IF NOT EXISTS "User_role_key" ON "User"("role");`,
+      `CREATE INDEX IF NOT EXISTS "User_teamId_key" ON "User"("teamId");`,
+      `CREATE INDEX IF NOT EXISTS "User_dni_key" ON "User"("dni");`,
       // Crear tabla Island
       `CREATE TABLE IF NOT EXISTS "Island" (
         "id" TEXT NOT NULL,
@@ -29,8 +34,11 @@ export async function POST(req: NextRequest) {
         "description" TEXT,
         "isActive" BOOLEAN NOT NULL DEFAULT true,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Island_pkey" PRIMARY KEY ("id")
       );`,
+      `CREATE INDEX IF NOT EXISTS "Island_code_key" ON "Island"("code");`,
+      `CREATE INDEX IF NOT EXISTS "Island_isActive_key" ON "Island"("isActive");`,
       // Crear tabla IslandThreshold
       `CREATE TABLE IF NOT EXISTS "IslandThreshold" (
         "id" TEXT NOT NULL,
@@ -52,8 +60,10 @@ export async function POST(req: NextRequest) {
         "criticalAdherence" DOUBLE PRECISION NOT NULL DEFAULT 85.0,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "IslandThreshold_pkey" PRIMARY KEY ("id"),
         CONSTRAINT "IslandThreshold_islandId_key" UNIQUE ("islandId")
       );`,
+      `CREATE INDEX IF NOT EXISTS "IslandThreshold_islandId_key" ON "IslandThreshold"("islandId");`,
       // Crear tabla OperationsUpload
       `CREATE TABLE IF NOT EXISTS "OperationsUpload" (
         "id" TEXT NOT NULL,
@@ -65,8 +75,12 @@ export async function POST(req: NextRequest) {
         "validRows" INTEGER NOT NULL DEFAULT 0,
         "invalidRows" INTEGER NOT NULL DEFAULT 0,
         "notes" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "OperationsUpload_pkey" PRIMARY KEY ("id")
       );`,
+      `CREATE INDEX IF NOT EXISTS "OperationsUpload_uploadedByUserId_key" ON "OperationsUpload"("uploadedByUserId");`,
+      `CREATE INDEX IF NOT EXISTS "OperationsUpload_status_key" ON "OperationsUpload"("status");`,
+      `CREATE INDEX IF NOT EXISTS "OperationsUpload_createdAt_key" ON "OperationsUpload"("createdAt");`,
       // Crear tabla OperationsMetric
       `CREATE TABLE IF NOT EXISTS "OperationsMetric" (
         "id" TEXT NOT NULL,
@@ -90,8 +104,12 @@ export async function POST(req: NextRequest) {
         "outboundTimeSeconds" INTEGER,
         "handleTimeSeconds" INTEGER,
         "rawPayloadJson" JSONB,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "OperationsMetric_pkey" PRIMARY KEY ("id")
       );`,
+      `CREATE INDEX IF NOT EXISTS "OperationsMetric_uploadId_key" ON "OperationsMetric"("uploadId");`,
+      `CREATE INDEX IF NOT EXISTS "OperationsMetric_employeeId_key" ON "OperationsMetric"("employeeId");`,
+      `CREATE INDEX IF NOT EXISTS "OperationsMetric_createdAt_key" ON "OperationsMetric"("createdAt");`,
       // Crear tabla AgentGoal
       `CREATE TABLE IF NOT EXISTS "AgentGoal" (
         "id" TEXT NOT NULL,
@@ -106,8 +124,13 @@ export async function POST(req: NextRequest) {
         "isActive" BOOLEAN NOT NULL DEFAULT true,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "AgentGoal_pkey" PRIMARY KEY ("id"),
         CONSTRAINT "AgentGoal_leaderId_agentEmployeeId_periodMonth_periodYear_key" UNIQUE ("leaderId", "agentEmployeeId", "periodMonth", "periodYear")
       );`,
+      `CREATE INDEX IF NOT EXISTS "AgentGoal_leaderId_key" ON "AgentGoal"("leaderId");`,
+      `CREATE INDEX IF NOT EXISTS "AgentGoal_agentEmployeeId_key" ON "AgentGoal"("agentEmployeeId");`,
+      `CREATE INDEX IF NOT EXISTS "AgentGoal_periodMonth_periodYear_key" ON "AgentGoal"("periodMonth", "periodYear");`,
+      `CREATE INDEX IF NOT EXISTS "AgentGoal_isActive_key" ON "AgentGoal"("isActive");`,
     ];
 
     for (const migration of migrations) {
