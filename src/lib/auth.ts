@@ -54,11 +54,20 @@ export const authConfig = {
         }
 
         const isAdmin = email === ADMIN_EMAIL;
-        const emailDomain = email.split('@')[1]?.toLowerCase();
+        const emailDomain = email.split('@')[1]?.toLowerCase().trim();
+        const corporateDomain = CORPORATE_DOMAIN.toLowerCase().trim();
 
-        if (!isAdmin && emailDomain !== CORPORATE_DOMAIN) {
-          console.error(`Email ${email} no pertenece al dominio corporativo ${CORPORATE_DOMAIN}`);
-          throw new Error(`Solo se permiten emails del dominio @${CORPORATE_DOMAIN}. Contacta a soporte si necesitas acceso.`);
+        console.log('Auth Debug:', {
+          email,
+          emailDomain,
+          corporateDomain,
+          isAdmin,
+          domainsMatch: emailDomain === corporateDomain,
+        });
+
+        if (!isAdmin && emailDomain !== corporateDomain) {
+          console.error(`Email ${email} no pertenece al dominio corporativo ${corporateDomain}`);
+          throw new Error(`Solo se permiten emails del dominio @${corporateDomain}. Contacta a soporte si necesitas acceso.`);
         }
 
         let firstName = '';
