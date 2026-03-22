@@ -18,15 +18,24 @@ interface NominaRow {
   JEFE?: string;
 }
 
+// Función auxiliar para normalizar texto para comparación
+function normalizeForComparison(text: string): string {
+  return text.trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/\s+/g, '') // Remove all whitespace
+    .toLowerCase();
+}
+
 // Mapeo flexible de columnas - permite diferentes nombres y case-insensitive
 const COLUMN_MAPPING: Record<string, string[]> = {
   DNI: ['DNI', 'dni', 'Documento', 'DOCUMENTO', 'Doc', 'DOC'],
-  USUARIO: ['USUARIO', 'Usuario', 'usuario', 'Employee Id', 'EMPLOYEE ID', 'Legajo', 'LEGajo', 'ID'],
-  NOMBRE: ['NOMBRE', 'Nombre', 'nombre', 'Name', 'NAME', 'Agente', 'AGENTE', 'Apellido y Nombre'],
-  SUPERIOR: ['SUPERIOR', 'Superior', 'superior', 'Lider', 'LÍDER', 'Leader', 'LEADER', 'Jefe Directo', 'JEFE DIRECTO'],
+  USUARIO: ['USUARIO', 'Usuario', 'usuario', 'Employee Id', 'EMPLOYEEID', 'Legajo', 'LEGajo', 'ID'],
+  NOMBRE: ['NOMBRE', 'Nombre', 'nombre', 'Name', 'NAME', 'Agente', 'AGENTE', 'ApellidoyNombre'],
+  SUPERIOR: ['SUPERIOR', 'Superior', 'superior', 'Lider', 'Lider', 'Leader', 'LEADER', 'JefeDirecto', 'JEFEDIRECTO'],
   SEGMENTO: ['SEGMENTO', 'Segmento', 'segmento', 'Segment', 'SEGMENT'],
   HORARIOS: ['HORARIOS', 'Horarios', 'horarios', 'Horario', 'HORARIO', 'Schedule', 'SCHEDULE'],
-  ESTADO: ['ESTADO', 'Estado', 'estado', 'Status', 'STATUS', 'Estado Civil'],
+  ESTADO: ['ESTADO', 'Estado', 'estado', 'Status', 'STATUS', 'EstadoCivil'],
   CONTRATO: ['CONTRATO', 'Contrato', 'contrato', 'Contract', 'CONTRACT'],
   SITIO: ['SITIO', 'Sitio', 'sitio', 'Site', 'SITE', 'Location', 'LOCATION'],
   MODALIDAD: ['MODALIDAD', 'Modalidad', 'modalidad', 'Mode', 'MODE', 'Tipo', 'TIPO'],
@@ -36,7 +45,11 @@ const COLUMN_MAPPING: Record<string, string[]> = {
 // Función para normalizar nombre de columna
 function normalizeColumnName(colName: string): string {
   if (!colName) return '';
-  return colName.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return colName.trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/\s+/g, '') // Remove all whitespace
+    .toLowerCase();
 }
 
 // Función para encontrar la columna correcta en el Excel
@@ -44,11 +57,11 @@ function findColumn(rawRow: Record<string, unknown>, targetField: string): strin
   const rawKeys = Object.keys(rawRow);
 
   for (const key of rawKeys) {
-    const normalizedKey = normalizeColumnName(key);
+    const normalizedKey = normalizeForComparison(key);
 
     for (const variant of COLUMN_MAPPING[targetField]) {
-      const normalizedVariant = normalizeColumnName(variant);
-      if (normalizedKey.toLowerCase() === normalizedVariant.toLowerCase()) {
+      const normalizedVariant = normalizeForComparison(variant);
+      if (normalizedKey === normalizedVariant) {
         return key;
       }
     }
@@ -114,8 +127,13 @@ export async function POST(request: NextRequest) {
         const superior = normalizeDisplayText(getRowValue(rawRow, 'SUPERIOR') || '');
         const usuario = getRowValue(rawRow, 'USUARIO') || '';
 
+        // Debug log para primera fila
+        if (i === 0) {
+          console.log('Primera fila procesada:', { dni, nombre, superior, usuario });
+        }
+
         if (!dni || !nombre) {
-          results.errors.push({ row: rowIndex, error: 'Falta DNI o NOMBRE' });
+          results.errors.push({ row: rowIndex, error: `Falta DNI o NOMBRE (DNI: "${dni}", NOMBRE: "${nombre}")` });
           continue;
         }
 
@@ -256,9 +274,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Log final para debug
+    console.log('Procesamiento de nómina completado:', {
+      totalRows: rawData.length,
+      agentsInMap: agentsMap.size,
+      leadersInMap: leadersMap.size,
+      created: results.created,
+      updated: results.updated,
+      errors: results.errors.length,
+    });
+
     return NextResponse.json({
       success: true,
-      data: results,
+      data: {
+        ...results,
+        debug: {
+          totalRows: rawData.length,
+          agentsProcessed: agentsMap.size,
+          leadersFound: leadersMap.size,
+          sampleColumns: rawData.length > 0 ? Object.keys(rawData[0]) : [],
+        },
+      },
     });
   } catch (error) {
     console.error('Error al procesar nómina:', error);
