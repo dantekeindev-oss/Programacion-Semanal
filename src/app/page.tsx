@@ -36,7 +36,7 @@ export default async function Home() {
         {/* Logo/Brand section */}
         <BrandLogo size="md" priority title="Gestor de Horarios" subtitle="Konecta" />
 
-        <h1 className="mt-6 text-4xl font-bold text-slate-900">Tu espacio de gestion semanal</h1>
+        <h1 className="mt-6 text-4xl font-bold text-slate-900">GESTIÓN SEMANAL - [MIGRATIONS READY]</h1>
         <p className="mt-3 text-base text-slate-600 leading-relaxed">
           Plataforma interna para gestión de horarios, solicitudes y equipos.
         </p>
