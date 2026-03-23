@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ejecutar Migraciones</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+    button { padding: 15px 30px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    #result { margin-top: 20px; padding: 15px; border-radius: 8px; white-space: pre-wrap; font-size: 12px; }
+    .success { background: #d1fae5; color: #065f46; }
+    .error { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <h1>Ejecutar Migraciones de Base de Datos</h1>
+  <p>Este script ejecutará las migraciones necesarias para actualizar la base de datos.</p>
+  <button onclick="runMigrations()">Ejecutar Migraciones</button>
+  <div id="result"></div>
+
+  <script>
+    async function runMigrations() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.textContent = 'Ejecutando...';
+      resultDiv.className = '';
+
+      try {
+        const response = await fetch('/api/admin/logout?migrate=1');
+        const data = await response.json();
+        resultDiv.textContent = JSON.stringify(data, null, 2);
+        resultDiv.className = data.success ? 'success' : 'error';
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+      }
+    }
+  </script>
+</body>
+</html>
